@@ -1,122 +1,84 @@
 # INF6083 — Projet P2 : Recommandation basée sur le contenu
 
-Devoir 2 du cours *Systèmes de recommandation* (INF6083). Implémentation d’un système de recommandation **basé sur le contenu** (content-based filtering), avec environnement local (venv), support optionnel de CUDA, et compatibilité Linux / Windows.
+Projet 2 du cours *Systèmes de recommandation* (INF6083). Recommandation **basée sur le contenu** à partir des métadonnées des livres (Amazon Reviews 2023, catégorie Books), avec un **notebook** comme livrable principal.
+
+---
+
+## Jeu de données
+
+- **Source :** Amazon Reviews 2023, catégorie **Books** (même sous-ensemble que le projet P1).
+- **Fichier central :** `meta_Books.jsonl.gz` (métadonnées : `parent_asin`, `title`, `description`, `categories`, `average_rating`, `rating_number`, `price`).
+- Les **interactions** utilisateur–item proviennent du sous-ensemble de travail P1 (à placer dans `data/` ou à indiquer en début de notebook).
 
 ---
 
 ## Prérequis
 
-- **Python** : 3.10 ou supérieur
-- **Système** : Linux ou Windows
-- **Optionnel** : pilote NVIDIA + CUDA pour accélération GPU (voir section CUDA)
+- **Python** 3.10+
+- **Environnement** : venv recommandé (Linux / Windows).
+- **Optionnel** : CUDA pour accélération GPU (PyTorch).
 
 ---
 
-## Installation (KISS)
-
-### 1. Cloner / aller dans le projet
+## Installation
 
 ```bash
 cd sysdereco_devoir2
-```
-
-### 2. Créer et activer un venv
-
-**Linux / macOS :**
-
-```bash
 python3 -m venv .venv
-source .venv/bin/activate
-```
-
-**Windows (cmd) :**
-
-```cmd
-python -m venv .venv
-.venv\Scripts\activate.bat
-```
-
-**Windows (PowerShell) :**
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-### 3. Installer les dépendances
-
-**CPU uniquement :**
-
-```bash
+source .venv/bin/activate   # Linux/macOS
+# .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 ```
-
-**Avec CUDA (exemple : CUDA 12.1) :**
-
-Installer d’abord PyTorch avec CUDA, puis le reste :
-
-```bash
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-pip install -r requirements.txt
-```
-
-Adapter `cu121` à votre version de CUDA (voir [pytorch.org](https://pytorch.org/get-started/locally/)).
 
 ---
 
-## Structure du projet
+## Structure du projet (format simple)
 
 ```
 sysdereco_devoir2/
-├── README.md                 # Ce fichier
-├── requirements.txt          # Dépendances Python (venv)
+├── README.md
+├── requirements.txt
+├── notebook_recommandation_contenu.ipynb   # Notebook principal (à renommer pour remise)
+├── data/                                   # Données (meta_Books.jsonl.gz + interactions P1)
 ├── config/
-│   └── default.yaml          # Paramètres par défaut (chemins, seuils, etc.)
-├── data/                     # Données brutes ou pré-traitées (à ajouter)
-├── src/
-│   ├── __init__.py
-│   ├── data/                 # Chargement et prétraitement
-│   │   ├── __init__.py
-│   │   └── loader.py         # Structure : chargement des données
-│   ├── recommender/          # Moteur de recommandation
-│   │   ├── __init__.py
-│   │   └── content_based.py  # Structure : similarité / recommandation
-│   └── evaluation/           # Métriques et évaluation
-│       ├── __init__.py
-│       └── metrics.py        # Structure : précision, rappel, etc.
-├── scripts/
-│   ├── run_pipeline.py       # Script principal : de la donnée aux recommandations
-│   └── check_env.py          # Vérification venv + CPU/CUDA
-├── models/                   # Modèles sauvegardés (optionnel)
-└── results/                  # Résultats (métriques, logs)
+│   └── default.yaml                        # Optionnel : paramètres (référencés dans le notebook si besoin)
+├── models/                                  # Modèles sauvegardés (optionnel)
+└── results/                                # Résultats / figures pour le rapport
 ```
 
-Chaque script et module contient en en-tête des **commentaires détaillant sa structure** et son rôle, en français.
+**Remise :** renommer le notebook en `INF6083-P2-EquipeN-Code.ipynb` (N = numéro d’équipe) et l’inclure dans le zip avec le rapport PDF et le `README.md`.
 
 ---
 
-## Utilisation rapide
+## Exécution
 
-1. **Vérifier l’environnement** (venv, PyTorch, CUDA si installé) :
-
-   ```bash
-   python scripts/check_env.py
-   ```
-
-2. **Lancer le pipeline** (une fois les données et le code en place) :
-
-   ```bash
-   python scripts/run_pipeline.py
-   ```
-
-Les chemins et options sont configurables via `config/default.yaml`.
+1. *(Optionnel)* Vérifier l’environnement : `python scripts/check_env.py`
+2. Placer les données dans `data/` : `meta_Books.jsonl.gz` et le fichier d’interactions (sous-ensemble P1).
+3. Ouvrir le notebook dans Jupyter :  
+   `jupyter notebook notebook_recommandation_contenu.ipynb`  
+   ou avec JupyterLab / VS Code.
+4. Exécuter les cellules dans l’ordre (Tâche 0 → … → Tâche 5).
 
 ---
 
-## CUDA (optionnel)
+## Tâches (résumé)
 
-- **Sans GPU** : le projet fonctionne en CPU (NumPy, scikit-learn, PyTorch CPU).
-- **Avec GPU** : installer PyTorch avec le wheel CUDA adapté à votre version (voir étape 3 ci-dessus). Le code pourra utiliser `.to("cuda")` ou équivalent là où c’est pertinent.
+| Tâche | Contenu |
+|-------|--------|
+| **0** | Préparation : jointure interactions/métadonnées, split train/test temporel, représentations d’items (TF-IDF), profils utilisateurs. |
+| **1** | Recommandation par similarité de contenu (profil–item), top-N, analyse qualitative. |
+| **2** | Représentations latentes (SVD tronquée), projection des profils, comparaison avec Tâche 1. |
+| **3** | Apprentissage d’un score de pertinence (variables explicatives, au moins 2 modèles). |
+| **4** | Évaluation : métriques top-N, analyse par profils d’utilisateurs, diversité et surspécialisation. |
+| **5** | Discussion : synthèse, limites, cold start, hybridation avec P1. |
+
+---
+
+## Livrables (rappel)
+
+- **Rapport PDF** : `INF6083-P2-EquipeN-Rapport.pdf` (max 30 pages).
+- **Code** : `INF6083-P2-EquipeN-Code.ipynb` (ou fichiers .py), `requirements.txt`, `README.md`.
+- Date de remise : **22 mars 2026**, 23h59.
 
 ---
 
