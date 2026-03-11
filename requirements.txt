@@ -1,0 +1,21 @@
+# INF6083 - Projet P2 : Recommandation basée sur le contenu
+# Format : notebook principal. Venv, Python 3.10+, Linux/Windows. CUDA optionnel.
+
+# --- Calcul et données ---
+numpy>=1.24,<3
+pandas>=2.0
+scipy>=1.10
+scikit-learn>=1.3
+
+# --- Notebook ---
+jupyter>=1.0
+notebook>=7.0
+
+# --- Utilitaires ---
+tqdm>=4.65
+pyyaml>=6.0
+
+# --- Optionnel : PyTorch (pour Tâche 3 si modèle neural) ---
+# CPU : pip install torch
+# CUDA : pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.0
