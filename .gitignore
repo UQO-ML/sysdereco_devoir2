@@ -207,7 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 # Données volumineuses (décommenter si vous ne versionnez pas les jeux de données)
-# data/raw/
-# data/processed/
-# *.csv
-# *.parquet
+data/raw/
+data/processed/
+*.csv
+*.parquet
+amazon-reviews*
