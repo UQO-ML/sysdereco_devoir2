@@ -1,0 +1,24 @@
+# INF6083 - Projet P2 : Recommandation basée sur le contenu
+# Environnement : venv, Python 3.10+
+# Compatible Linux et Windows. CUDA optionnel (voir section CUDA ci-dessous).
+
+# --- Dépendances principales (CPU) ---
+numpy>=1.24,<3
+pandas>=2.0
+scipy>=1.10
+scikit-learn>=1.3
+
+# --- Utilitaires ---
+tqdm>=4.65
+pyyaml>=6.0
+
+# --- Optionnel : PyTorch (CPU par défaut) ---
+# Installation CPU (déjà compatible) :
+#   pip install torch
+# Installation CUDA (Linux / Windows) : installer torch depuis les index PyTorch.
+# Exemple Linux CUDA 12.1 :
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# Exemple Windows CUDA 12.1 :
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# Voir https://pytorch.org/get-started/locally/ pour votre version de CUDA.
+torch>=2.0
