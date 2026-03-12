@@ -1,0 +1,5 @@
+# RAPIDS (GPU) – CUDA 12 uniquement. Vérifier : nvidia-smi
+# Nécessite Python 3.10–3.12 (3.14 peut ne pas avoir de wheels).
+cudf-cu12
+rmm-cu12
+cupy-cuda12x

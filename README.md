@@ -14,7 +14,7 @@ Projet 2 du cours *Systèmes de recommandation* (INF6083). Recommandation **bas�
 
 ## Prérequis
 
-- **Python** 3.10+
+- **Python** 3.10+ max 3.13
 - **Environnement** : venv recommandé (Linux / Windows).
 - **Optionnel** : CUDA pour accélération GPU (PyTorch).
 
@@ -24,7 +24,7 @@ Projet 2 du cours *Systèmes de recommandation* (INF6083). Recommandation **bas�
 
 ```bash
 cd sysdereco_devoir2
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate   # Linux/macOS
 # .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
