@@ -1,0 +1,66 @@
+name: Discord Notifications
+
+on:
+  push:
+  pull_request:
+    types: [opened, closed, reopened]
+  issues:
+    types: [opened, closed, reopened]
+
+jobs:
+  discord:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Push Notification
+        if: github.event_name == 'push'
+        run: |
+          payload=$(jq -n \
+            --arg repo "${{ github.repository }}" \
+            --arg branch "${{ github.ref_name }}" \
+            --arg author "${{ github.actor }}" \
+            --arg message "${{ github.event.head_commit.message }}" \
+            --arg url "${{ github.event.head_commit.url }}" \
+            '{
+              embeds: [{
+                title: "New Commit",
+                description: $message,
+                url: $url,
+                color: 5814783,
+                fields: [
+                  {name: "Repository", value: $repo, inline: true},
+                  {name: "Branch", value: $branch, inline: true},
+                  {name: "Author", value: $author, inline: true}
+                ]
+              }]
+            }')
+
+          curl -s -H "Content-Type: application/json" \
+          -d "$payload" \
+          "${{ secrets.DISCORD_WEBHOOK }}"
+
+      - name: Send Pull Request Notification
+        if: github.event_name == 'pull_request'
+        run: |
+          payload=$(jq -n \
+            --arg title "${{ github.event.pull_request.title }}" \
+            --arg body "${{ github.event.pull_request.body }}" \
+            --arg author "${{ github.event.pull_request.user.login }}" \
+            --arg state "${{ github.event.pull_request.state }}" \
+            --arg url "${{ github.event.pull_request.html_url }}" \
+            '{
+              embeds: [{
+                title: $title,
+                description: $body,
+                url: $url,
+                color: 3447003,
+                fields: [
+                  {name: "Author", value: $author, inline: true},
+                  {name: "State", value: $state, inline: true}
+                ]
+              }]
+            }')
+
+          curl -s -H "Content-Type: application/json" \
+          -d "$payload" \
+          "${{ secrets.DISCORD_WEBHOOK }}"
