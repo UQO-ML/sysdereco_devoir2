@@ -58,8 +58,11 @@ try:
     import rmm
     from rmm.allocators.cupy import rmm_cupy_allocator
 
+    def _align_down_256(n: int) -> int:
+        return n - (n % 256)
+
     def _compute_managed_memory_cap(
-        ram_reserve_gb: float = 16.0,
+        ram_reserve_gb: float = 4.0,
         vram_fraction: float = 0.90,
     ) -> int:
         """
@@ -96,12 +99,14 @@ try:
         # The cap is VRAM + how much RAM we're willing to let UVM spill into
         cap = usable_vram + max(usable_ram_spill, 0)
         
-        return cap
+        return _align_down_256(cap)
 
     try:
-        _MANAGED_MEMORY_CAP = _compute_managed_memory_cap(ram_reserve_gb=16.0)
+        _MANAGED_MEMORY_CAP = _compute_managed_memory_cap()
     except Exception:
         _MANAGED_MEMORY_CAP = 50 * (1024**3)  # safe fallback
+    
+    print(f"Managed_memory_cap: {_MANAGED_MEMORY_CAP/(1024**3)} GB")
     
     managed_mr = rmm.mr.ManagedMemoryResource()
     limited_mr = rmm.mr.LimitingResourceAdaptor(
