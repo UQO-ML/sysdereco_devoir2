@@ -32,9 +32,11 @@ from pathlib import Path
 import pyarrow.parquet as pq
 import pyarrow as pa
 import pyarrow.compute as pc
+import hashlib
 
 import numpy as np
 import pandas as pd
+import polars as pl
 from scipy.sparse import csr_matrix, save_npz
 
 try:
@@ -251,10 +253,156 @@ def _print_ram_status(label: str = "") -> None:
         pass
 
 
+def jsonl_to_parquet_conversion() -> bool:
+
+    print("╔══════════════════════════════════════════════════════════════════════╗")
+    print("║  CONVERSION JSONL → PARQUET                                         ║")
+    print("║  Lecture des fichiers JSONL bruts et conversion en Parquet (Polars). ║")
+    print("║  Le format Parquet offre une compression columnar 3-5× plus         ║")
+    print("║  compacte que JSONL et permet la lecture paresseuse (lazy scanning). ║")
+    print("╚══════════════════════════════════════════════════════════════════════╝")
+    print(f"  Fichiers JSONL trouvés : {len(RAW_JSONL_PATHS)}")
+    print(f"  Colonnes numériques surveillées : {CANDIDATE_NUMERIC_COLUMNS}")
+
+    result = True
+
+    for jsonl_path in RAW_JSONL_PATHS:
+        parquet_path = jsonl_path.replace("jsonl", "parquet")
+        
+        # ── 1. Passer si déjà fait (avec vérification d'intégrité) ───────────
+        if os.path.exists(parquet_path):
+            try:
+                n_parquet = pl.scan_parquet(parquet_path).select(pl.len()).collect().item()
+                cols_parquet = set(pl.scan_parquet(parquet_path).collect_schema().names())
+                
+                with open(jsonl_path, "rb") as f:
+                    n_jsonl = sum(1 for line in f if line.strip())
+                
+                if n_parquet != n_jsonl:
+                    print(f"  ⚠ Nombre de lignes incohérent, reconversion : {jsonl_path}")
+                else:
+                    schema_jsonl = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
+                    cols_jsonl = set(schema_jsonl.names())
+                    if cols_jsonl == cols_parquet:
+                        print(f"  ✓ Déjà converti (vérifié) : {parquet_path}")
+                        continue
+                    else:
+                        print(f"  ⚠ Schéma incohérent, reconversion : {jsonl_path}")
+            except Exception as e:
+                print(f"  ⚠ Fichier existant invalide ({e}), reconversion : {parquet_path}")
+        
+        # ── 2. Détection des colonnes à surcharger ───────────────────────────
+        schema_initial = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
+        cols_to_override = [c for c in schema_initial.names() if c in CANDIDATE_NUMERIC_COLUMNS]
+        schema_overrides = {c: pl.Utf8 for c in cols_to_override} if cols_to_override else None
+        
+        # ── 3. Conversion ────────────────────────────────────────────────────
+        print(f"  Conversion {jsonl_path} → {parquet_path}...")
+        kwargs = {"schema_overrides": schema_overrides} if schema_overrides else {}
+        lf = pl.scan_ndjson(jsonl_path, **kwargs)
+        if cols_to_override:
+            lf = lf.with_columns([
+                pl.col(c).cast(pl.Float64, strict=False) for c in cols_to_override
+            ])
+        lf.sink_parquet(parquet_path)
+        del lf
+        gc.collect()
+        
+        # ── 4. Intégrité : nombre de lignes (sans chargement complet) ────────
+        with open(jsonl_path, "rb") as f:
+            n_jsonl = sum(1 for line in f if line.strip())
+        n_parquet = pl.scan_parquet(parquet_path).select(pl.len()).collect().item()
+        
+        if n_jsonl != n_parquet:
+            raise ValueError(
+                f"Incohérence de données ! JSONL : {n_jsonl:,} lignes, Parquet : {n_parquet:,} lignes. "
+                f"Fichier : {jsonl_path}"
+            )
+        print(f"  ✓ Lignes vérifiées : {n_parquet:,}")
+        
+        # ── 5. Intégrité : schéma (noms de colonnes) ─────────────────────────
+        cols_jsonl = set(pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema().names())
+        cols_parquet = set(pl.scan_parquet(parquet_path).collect_schema().names())
+        
+        if cols_jsonl != cols_parquet:
+            only_jsonl = cols_jsonl - cols_parquet
+            only_parquet = cols_parquet - cols_jsonl
+            raise ValueError(
+                f"Schéma incohérent ! {jsonl_path}\n"
+                f"  Uniquement dans JSONL : {only_jsonl or 'aucun'}\n"
+                f"  Uniquement dans Parquet : {only_parquet or 'aucun'}"
+            )
+        print(f"  ✓ Schéma vérifié : {list(cols_parquet)}")
+        
+        # ── 6. Vérification par échantillon ──────────────────────────────────
+        n_sample = min(N_SPOT_CHECK, n_parquet)
+        if n_sample == 0:
+            print(f"  ✓ Vérification ignorée (fichier vide)")
+        else:
+            read_kwargs = {"schema_overrides": schema_overrides} if schema_overrides else {}
+            df_jsonl_sample = pl.read_ndjson(jsonl_path, n_rows=n_sample, **read_kwargs)
+            if cols_to_override:
+                df_jsonl_sample = df_jsonl_sample.with_columns([
+                    pl.col(c).cast(pl.Float64, strict=False) for c in cols_to_override
+                ])
+            df_parquet_sample = pl.read_parquet(parquet_path, n_rows=n_sample)
+            df_jsonl_sample = df_jsonl_sample.select(df_parquet_sample.columns)
+            
+            for col in df_parquet_sample.columns:
+                s_jsonl = df_jsonl_sample[col]
+                s_parquet = df_parquet_sample[col]
+                if not s_jsonl.eq_missing(s_parquet).all():
+                    diff_mask = ~s_jsonl.eq_missing(s_parquet)
+                    idx = diff_mask.arg_true()[0]
+                    result = False
+                    raise ValueError(
+                        f"Vérification échouée : colonne '{col}' diffère à la ligne {idx}\n"
+                        f"  JSONL :   {s_jsonl[idx]}\n"
+                        f"  Parquet : {s_parquet[idx]}"
+                    )
+            print(f"  ✓ Vérification réussie ({n_sample:,} premières lignes)")
+            
+            del df_jsonl_sample, df_parquet_sample
+            gc.collect()
+        
+        # ── 7. Nettoyage par fichier ─────────────────────────────────────────
+        gc.collect()
+
+    # ── 8. Nettoyage final et résumé ────────────────────────────────────
+    gc.collect()
+    print("\n✓ Conversion terminée. Tous les fichiers JSONL ont été convertis en Parquet.")
+    print("  Les fichiers Parquet sont prêts pour l'analyse dans les cellules suivantes.")  
+    return result
+
+
+def deterministic_sample_users(
+    user_ids, 
+    num_users: int = NUM_USERS, 
+    seed: int = SEED,
+) -> list[str]:
+    """
+    Deterministic backend-independent sampling by hash ranking.
+    user_ids: iterable of user_id (any backend, convertable to str)
+    """
+    seen = set()
+    scored = []
+
+    for uid in user_ids:
+        s = str(uid)
+        if s in seen:
+            continue
+        seen.add(s)
+
+        h = hashlib.blake2b(f"{seed}:{s}".encode("utf-8"), digest_size=8).digest()
+        score = int.from_bytes(h, "big")
+        scored.append((score, s))
+
+    scored.sort(key=lambda x: x[0])  # smallest hashes first
+    return [uid for _, uid in scored[:min(num_users, len(scored))]]
 
 
 # =============================================================================
-#  ÉCHANTILLONNAGE GPU
+#   ÉCHANTILLONNAGE GPU
 # =============================================================================
 
 def sample_active_users_gpu(
@@ -299,13 +447,23 @@ def sample_active_users_gpu(
     user_counts = gdf["user_id"].value_counts()
     active_users = user_counts[user_counts >= min_reviews].index
 
-    # Sélection aléatoire sur GPU — seuls les 50k indices sont copiés vers le CPU
-    cp.random.seed(seed)
-    n_to_sample = min(num_users, len(active_users))
-    indices = cp.random.choice(len(active_users), size=n_to_sample, replace=False)
+    # # Sélection aléatoire sur GPU — seuls les 50k indices sont copiés vers le CPU
+    # cp.random.seed(seed)
+    # n_to_sample = min(num_users, len(active_users))
+    # indices = cp.random.choice(len(active_users), size=n_to_sample, replace=False)
+    # active_users_series = active_users.to_series().reset_index(drop=True)
+    # selected_users = active_users_series.iloc[cp.asnumpy(indices)]
+    # del user_counts, active_users, active_users_series, indices
+
+    # Sélection deterministique
     active_users_series = active_users.to_series().reset_index(drop=True)
-    selected_users = active_users_series.iloc[cp.asnumpy(indices)]
-    del user_counts, active_users, active_users_series, indices
+    active_users_list = active_users_series.to_pandas().astype(str).tolist()
+    selected_users = deterministic_sample_users(
+        active_users_list,
+        num_users=num_users,
+        seed=seed,
+    )
+    del user_counts, active_users, active_users_series, active_users_list
 
     if verbose:
         print(f"  Utilisateurs actifs sélectionnés: {len(selected_users):,}")
@@ -417,18 +575,30 @@ def sample_temporal_gpu(
     if verbose:
         print(f"Active users (>= {min_reviews} reviews): {len(active_in_period):,}")
 
-    # Sélection aléatoire sur GPU
+    # # Sélection aléatoire sur GPU
+    # active_user_ids = active_in_period["user_id"].reset_index(drop=True)
+    # del active_in_period
+
+    # cp.random.seed(seed)
+    # n_to_sample = min(num_users, len(active_user_ids))
+    # indices = cp.random.choice(len(active_user_ids), size=n_to_sample, replace=False)
+    # sampled_series = active_user_ids.iloc[cp.asnumpy(indices)]
+    # del active_user_ids, indices
+
+    # Sélection deterministe
     active_user_ids = active_in_period["user_id"].reset_index(drop=True)
-    del active_in_period
+    active_user_ids_list = active_user_ids.to_pandas().astype(str).tolist()
+    del active_in_period, active_user_ids
 
-    cp.random.seed(seed)
-    n_to_sample = min(num_users, len(active_user_ids))
-    indices = cp.random.choice(len(active_user_ids), size=n_to_sample, replace=False)
-    sampled_series = active_user_ids.iloc[cp.asnumpy(indices)]
-    del active_user_ids, indices
+    sampled_users = deterministic_sample_users(
+        active_user_ids_list,
+        num_users=num_users,
+        seed=seed,
+    )
+    sampled_series = cudf.Series(sampled_users)
 
-    if verbose:
-        print(f"  Utilisateurs échantillonnés : {n_to_sample:,}")
+    del active_user_ids_list, sampled_users
+
 
     sample_gdf = gdf_period[gdf_period["user_id"].isin(sampled_series)]
     if verbose:
@@ -487,13 +657,28 @@ def sample_active_users_cpu(
     if verbose:
         print(f"  Utilisateurs actifs (>= {min_reviews} reviews): {len(active_users):,}")
 
-    random.seed(seed)
-    n_to_sample = min(num_users, len(active_users))
+
+    # random.seed(seed)
+    # n_to_sample = min(num_users, len(active_users))
+    # if n_to_sample == 0:
+    #     print(f"Pas d\'utilisateur a echantilloner n_to_sample = {n_to_sample}")
+    # selected_users = random.sample(active_users, n_to_sample) if n_to_sample > 0 else []
+    # del active_users
+
+
+    selected_users = deterministic_sample_users(
+        active_users,
+        num_users=num_users,
+        seed=seed,
+    )
+
+    n_to_sample = len(selected_users)
     if n_to_sample == 0:
         print(f"Pas d\'utilisateur a echantilloner n_to_sample = {n_to_sample}")
-    
-    selected_users = random.sample(active_users, n_to_sample) if n_to_sample > 0 else []
+
     del active_users
+
+    
     gc.collect()
 
     if verbose:
@@ -529,6 +714,7 @@ def sample_active_users_cpu(
         print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,}")
 
     return n_reviews
+
 
 def sample_temporal_cpu(
     parquet_path: str,
@@ -631,14 +817,28 @@ def sample_temporal_cpu(
     del vc, values, counts, active_mask
     gc.collect()
 
-    random.seed(seed)
-    n_to_sample = min(num_users, len(active_user_ids))
+    # random.seed(seed)
+    # n_to_sample = min(num_users, len(active_user_ids))
+    # if verbose: 
+    #     print(f"  Utilisateurs échantillonnés : {n_to_sample:,}")
+    # sampled_users = random.sample(active_user_ids, n_to_sample) if n_to_sample > 0 else []
+    # sampled_set = set(sampled_users)
+    # sampled_arr = pa.array(sampled_users)
+    # del active_user_ids, sampled_users
+
+    sampled_users = deterministic_sample_users(
+        active_user_ids,
+        num_users=num_users,
+        seed=seed,
+    )
+    n_to_sample = len(sampled_users)
     if verbose: 
         print(f"  Utilisateurs échantillonnés : {n_to_sample:,}")
-    sampled_users = random.sample(active_user_ids, n_to_sample) if n_to_sample > 0 else []
     sampled_set = set(sampled_users)
     sampled_arr = pa.array(sampled_users)
+
     del active_user_ids, sampled_users
+
     gc.collect()
 
     if verbose:
