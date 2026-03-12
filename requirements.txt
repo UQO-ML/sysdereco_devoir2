@@ -8,6 +8,7 @@ polars>=1.0
 scipy>=1.10
 scikit-learn>=1.3
 nvidia-ml-py
+pyarrow
 
 # --- Notebook ---
 jupyter>=1.0

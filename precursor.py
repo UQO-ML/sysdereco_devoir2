@@ -29,6 +29,10 @@ import random
 import time
 from pathlib import Path
 
+import pyarrow.parquet as pq
+import pyarrow as pa
+import pyarrow.compute as pc
+
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix, save_npz
@@ -54,8 +58,51 @@ try:
     import rmm
     from rmm.allocators.cupy import rmm_cupy_allocator
 
-    _MANAGED_MEMORY_CAP = 50 * (1024**3)
+    def _compute_managed_memory_cap(
+        ram_reserve_gb: float = 16.0,
+        vram_fraction: float = 0.90,
+    ) -> int:
+        """
+        Compute a safe RMM managed-memory cap based on actual hardware.
+        
+        With managed_memory=True, CUDA UVM can spill from VRAM to RAM.
+        The cap must account for both:
+        - VRAM: use most of it (vram_fraction)
+        - RAM spill: leave ram_reserve_gb free for the OS, Python, pandas, etc.
+        
+        Returns the cap in bytes.
+        """
+        import pynvml
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        vram_total = pynvml.nvmlDeviceGetMemoryInfo(handle).total
+        pynvml.nvmlShutdown()
 
+        # Total system RAM (requires psutil, or read from /proc/meminfo)
+        try:
+            import psutil
+            ram_total = psutil.virtual_memory().total
+        except ImportError:
+            # Fallback: read from /proc/meminfo (Linux only)
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        ram_total = int(line.split()[1]) * 1024  # kB → bytes
+                        break
+
+        usable_vram = int(vram_total * vram_fraction)
+        usable_ram_spill = ram_total - int(ram_reserve_gb * 1024**3)
+        
+        # The cap is VRAM + how much RAM we're willing to let UVM spill into
+        cap = usable_vram + max(usable_ram_spill, 0)
+        
+        return cap
+
+    try:
+        _MANAGED_MEMORY_CAP = _compute_managed_memory_cap(ram_reserve_gb=16.0)
+    except Exception:
+        _MANAGED_MEMORY_CAP = 50 * (1024**3)  # safe fallback
+    
     managed_mr = rmm.mr.ManagedMemoryResource()
     limited_mr = rmm.mr.LimitingResourceAdaptor(
         managed_mr,
@@ -197,6 +244,8 @@ def _print_ram_status(label: str = "") -> None:
         print(f"  [{label}] RAM process: {mem.rss / 1e9:.2f} GB")
     except ImportError:
         pass
+
+
 
 
 # =============================================================================
@@ -394,7 +443,7 @@ def sample_temporal_gpu(
 
 
 # =============================================================================
-#  ÉCHANTILLONNAGE CPU (alternatives pandas pour machines sans GPU)
+#  ÉCHANTILLONNAGE CPU (alternatives PyArrow pour machines sans GPU)
 # =============================================================================
 
 def sample_active_users_cpu(
@@ -402,76 +451,79 @@ def sample_active_users_cpu(
     output_path: str,
     min_reviews: int = MIN_REVIEWS,
     num_users: int = NUM_USERS,
+    batch_size: int = CHUNK_SIZE,
     seed: int = SEED,
     verbose: bool = True,
 ) -> int:
-    """
-    Équivalent CPU (pandas) de sample_active_users_gpu.
-
-    Même logique : charge le parquet, identifie les utilisateurs ayant
-    ≥ min_reviews reviews, en tire num_users au hasard, filtre leurs
-    reviews et écrit le résultat en Parquet.
-
-    Plus lent que la variante GPU mais ne nécessite ni GPU ni RAPIDS.
-
-    Returns:
-        Nombre de reviews écrites.
-    """
     flush_ram()
     start = time.time()
 
-    if verbose:
-        print("Phase 1 : Chargement en mémoire (pandas)...")
-    df = pd.read_parquet(parquet_path)
-    df["rating"] = df["rating"].astype("int8")
-    if verbose:
-        mem_gb = df.memory_usage(deep=True).sum() / 1e9
-        print(f"  DataFrame: {mem_gb:.2f} GB — {len(df):,} lignes")
-        _print_ram_status("After load")
+    # Pass 1: stream only user_id to count reviews/user
+    pf = pq.ParquetFile(parquet_path)
+    user_chunks = []
+    for batch in pf.iter_batches(batch_size=batch_size, columns=["user_id"]):
+        user_chunks.append(batch.column("user_id"))
+    del pf
+    
+    all_user_ids = pa.chunked_array(user_chunks)
+    del user_chunks
+    gc.collect()
 
-    # Identifier les utilisateurs ayant >= min_reviews reviews
-    user_counts = df["user_id"].value_counts()
-    active_users = user_counts[user_counts >= min_reviews].index.tolist()
-    del user_counts
+    vc = pc.value_counts(all_user_ids)  # struct array with values + counts
+    del all_user_ids
+
+    values = vc.field("values")
+    counts = vc.field("counts")
+    active_mask = pc.greater_equal(counts, min_reviews)
+    active_users = pc.filter(values, active_mask).to_pylist()
+    del vc, values, counts, active_mask
+    gc.collect()
+
     if verbose:
         print(f"  Utilisateurs actifs (>= {min_reviews} reviews): {len(active_users):,}")
 
-    # Sélection aléatoire
     random.seed(seed)
     n_to_sample = min(num_users, len(active_users))
-    selected_users = set(random.sample(active_users, n_to_sample))
+    if n_to_sample == 0:
+        print(f"Pas d\'utilisateur a echantilloner n_to_sample = {n_to_sample}")
+    
+    selected_users = random.sample(active_users, n_to_sample) if n_to_sample > 0 else []
     del active_users
     gc.collect()
 
     if verbose:
         print(f"  Utilisateurs échantillonnés: {n_to_sample:,}")
 
-    # Filtrage — .copy() pour libérer le DF original via GC
-    if verbose:
-        print("\nPhase 2 : Filtrage...")
-    sample_df = df.loc[df["user_id"].isin(selected_users)].copy()
-    del df, selected_users
+    selected_arr = pa.array(selected_users)
+    del selected_users
     gc.collect()
 
-    if verbose:
-        print(f"  Reviews correspondantes : {len(sample_df):,}")
-        _print_ram_status("After filter")
-
-    # Écriture
-    if verbose:
-        print("\nPhase 3 : Sauvegarde Parquet...")
+    # Pass 2: stream all columns, filter rows by selected users, write incrementally
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    sample_df.to_parquet(output_path, compression="snappy", index=False)
-    n_reviews = len(sample_df)
-    n_users_out = sample_df["user_id"].nunique()
-    del sample_df
-    gc.collect()
+    writer = None
+    n_reviews = 0
+
+    # Incremental write keeps memory bounded to ~one batch
+    pf2 = pq.ParquetFile(parquet_path)
+    for batch in pf2.iter_batches(batch_size=batch_size):
+        table = pa.Table.from_batches([batch])
+        mask = pc.is_in(table.column("user_id"), value_set=selected_arr)
+        filtered = table.filter(mask)
+
+        if filtered.num_rows > 0:
+            if writer is None:
+                writer = pq.ParquetWriter(output_path, filtered.schema, compression="snappy")
+            writer.write_table(filtered)
+            n_reviews += filtered.num_rows
+
+    if writer is not None:
+        writer.close()
 
     if verbose:
         elapsed = time.time() - start
-        print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,} — Utilisateurs: {n_users_out:,}")
-    return n_reviews
+        print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,}")
 
+    return n_reviews
 
 def sample_temporal_cpu(
     parquet_path: str,
@@ -479,18 +531,24 @@ def sample_temporal_cpu(
     target_years: list[int] | None = None,
     min_reviews: int = MIN_REVIEWS,
     num_users: int = NUM_USERS,
+    batch_size: int = CHUNK_SIZE,
     seed: int = SEED,
     verbose: bool = True,
 ) -> int:
     """
-    Équivalent CPU (pandas) de sample_temporal_gpu.
+    CPU-safe temporal sampling using PyArrow streaming (no full DataFrame load).
 
-    Même logique : filtre par années cibles, ne garde que les utilisateurs
-    ayant ≥ min_reviews dans la période, en tire num_users au hasard, et
-    écrit toutes leurs reviews de la période.
+    Pass 1:
+      - Stream only user_id + timestamp
+      - Keep rows in target years
+      - Count reviews/user in period
+      - Sample users with >= min_reviews
 
-    Returns:
-        Nombre de reviews écrites.
+    Pass 2:
+      - Stream full rows
+      - Keep rows in target years
+      - Keep sampled users
+      - Write incrementally with ParquetWriter
     """
     if target_years is None:
         target_years = TARGET_YEARS
@@ -498,68 +556,139 @@ def sample_temporal_cpu(
     flush_ram()
     start = time.time()
 
-    if verbose:
-        print("Chargement en mémoire (pandas)...")
-    df = pd.read_parquet(parquet_path)
-    df["rating"] = df["rating"].astype("int8")
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-    df["year"] = df["timestamp"].dt.year
-    if verbose:
-        mem_gb = df.memory_usage(deep=True).sum() / 1e9
-        print(f"  DataFrame: {mem_gb:.2f} GB — {len(df):,} lignes")
+    target_years_set = set(target_years)
+    target_years_arr = pa.array(sorted(target_years_set), type=pa.int64())
 
-    # Filtrer à la période cible, libérer le DF complet
-    df_period = df.loc[df["year"].isin(target_years)].copy()
-    del df
+    # ---------------------------
+    # Pass 1: count active users in period
+    # ---------------------------
+    if verbose:
+        print("Pass 1/2 : comptage des utilisateurs actifs dans la période...")
+
+    # Streaming read to avoid loading full parquet in RAM
+    pf = pq.ParquetFile(parquet_path)
+
+    user_chunks = []
+    year_counter = {y: 0 for y in sorted(target_years_set)}
+
+    for batch in pf.iter_batches(batch_size=batch_size, columns=["user_id", "timestamp"]):
+        table = pa.Table.from_batches([batch])
+
+        ts_col = table.column("timestamp")
+        ts_type = ts_col.type
+
+        # Handle both int(ms) and timestamp parquet schemas
+        if pa.types.is_integer(ts_type):
+            # ms -> timestamp[ms]
+            ts = pc.cast(ts_col, pa.timestamp("ms"))
+        elif pa.types.is_timestamp(ts_type):
+            ts = ts_col
+        else:
+            # Fallback: try cast anyway
+            ts = pc.cast(ts_col, pa.timestamp("ms"))
+
+        years = pc.year(ts)
+        year_mask = pc.is_in(years, value_set=target_years_arr)
+
+        # Optional yearly diagnostics
+        if verbose:
+            for y in year_counter:
+                year_counter[y] += int(pc.sum(pc.equal(years, y).cast(pa.int64())).as_py() or 0)
+            
+            print(f"  Reviews dans période {min(target_years_set)}-{max(target_years_set)} : {sum(year_counter.values()):,}")
+
+        filtered_users = pc.filter(table.column("user_id"), year_mask)
+        if len(filtered_users) > 0:
+            user_chunks.append(filtered_users)
+
+    del pf
+
+    if not user_chunks:
+        if verbose:
+            print("Aucune review trouvée dans la période cible.")
+        return 0
+
+    all_period_users = pa.chunked_array(user_chunks)
+    del user_chunks
     gc.collect()
 
-    # Statistiques par année
-    year_stats = df_period.groupby("year").agg(
-        review_count=("user_id", "count"),
-        unique_users=("user_id", "nunique"),
-        avg_rating=("rating", "mean"),
-    )
-    if verbose:
-        print(f"\n── Répartition {target_years[0]}–{target_years[-1]} ──")
-        print(year_stats.to_string())
-        print(f"\nTotal reviews : {year_stats['review_count'].sum():,}")
-    del year_stats
+    vc = pc.value_counts(all_period_users)
+    del all_period_users
+    gc.collect()
 
+    values = vc.field("values")
+    counts = vc.field("counts")
+    active_mask = pc.greater_equal(counts, min_reviews)
+    active_user_ids = pc.filter(values, active_mask).to_pylist()
     if verbose:
-        print(f"  Reviews dans période : {len(df_period):,}")
+        print(f"  Utilisateurs actifs (>= {min_reviews}) : {len(active_user_ids):,}")
 
-    # Compter les reviews par utilisateur dans la période
-    user_counts = df_period["user_id"].value_counts()
-    active_user_ids = user_counts[user_counts >= min_reviews].index.tolist()
-    del user_counts
-    if verbose:
-        print(f"Active users (>= {min_reviews} reviews): {len(active_user_ids):,}")
+    del vc, values, counts, active_mask
+    gc.collect()
 
-    # Sélection aléatoire
     random.seed(seed)
     n_to_sample = min(num_users, len(active_user_ids))
-    sampled_users = set(random.sample(active_user_ids, n_to_sample))
-    del active_user_ids
+    if verbose: 
+        print(f"  Utilisateurs échantillonnés : {n_to_sample:,}")
+    sampled_users = random.sample(active_user_ids, n_to_sample) if n_to_sample > 0 else []
+    sampled_set = set(sampled_users)
+    sampled_arr = pa.array(sampled_users)
+    del active_user_ids, sampled_users
     gc.collect()
 
     if verbose:
+        total_period_reviews = sum(year_counter.values())
+        print(f"  Reviews dans période {min(target_years_set)}-{max(target_years_set)} : {total_period_reviews:,}")
+        print(f"  Utilisateurs actifs (>= {min_reviews}) : {len(sampled_set):,}")
         print(f"  Utilisateurs échantillonnés : {n_to_sample:,}")
 
-    sample_df = df_period.loc[df_period["user_id"].isin(sampled_users)].copy()
-    del df_period, sampled_users
-    gc.collect()
-
+    # ---------------------------
+    # Pass 2: stream full rows and write filtered output
+    # ---------------------------
     if verbose:
-        print(f"  Reviews : {len(sample_df):,} — Utilisateurs : {sample_df['user_id'].nunique():,}")
+        print("Pass 2/2 : filtrage final et écriture incrémentale...")
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    sample_df.to_parquet(output_path, compression="snappy", index=False)
-    n_reviews = len(sample_df)
-    del sample_df
-    gc.collect()
+    writer = None
+    n_reviews = 0
+
+    # Streaming read to avoid loading full parquet in RAM
+    pf2 = pq.ParquetFile(parquet_path)
+    for batch in pf2.iter_batches(batch_size=batch_size):
+        table = pa.Table.from_batches([batch])
+
+        ts_col = table.column("timestamp")
+        ts_type = ts_col.type
+        if pa.types.is_integer(ts_type):
+            ts = pc.cast(ts_col, pa.timestamp("ms"))
+        elif pa.types.is_timestamp(ts_type):
+            ts = ts_col
+        else:
+            ts = pc.cast(ts_col, pa.timestamp("ms"))
+
+        years = pc.year(ts)
+        year_mask = pc.is_in(years, value_set=target_years_arr)
+        table_period = table.filter(year_mask)
+
+        if table_period.num_rows == 0:
+            continue
+
+        user_mask = pc.is_in(table_period.column("user_id"), value_set=sampled_arr)
+        filtered = table_period.filter(user_mask)
+
+        if filtered.num_rows > 0:
+            if writer is None:
+                writer = pq.ParquetWriter(output_path, filtered.schema, compression="snappy")
+            writer.write_table(filtered)
+            n_reviews += filtered.num_rows
+
+    if writer is not None:
+        writer.close()
 
     if verbose:
-        print(f"\n⚡ Temps: {time.time() - start:.2f}s — Reviews écrites: {n_reviews:,}")
+        elapsed = time.time() - start
+        print(f"\n⚡ Temps: {elapsed:.2f}s — Reviews écrites: {n_reviews:,}")
+
     return n_reviews
 
 

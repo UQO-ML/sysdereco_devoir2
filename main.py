@@ -4,9 +4,9 @@ main.py — Orchestrateur complet du pipeline de préparation des données.
 Exécute séquentiellement :
   1. Échantillonnage des utilisateurs actifs  (GPU si disponible, sinon CPU)
   2. Échantillonnage temporel                 (GPU si disponible, sinon CPU)
-  3. Nettoyage des échantillons               (CPU / pandas)
-  4. Filtrage itératif par seuils d'activité  (CPU / pandas)
-  5. Split train/test + matrices CSR + sauvegarde  (CPU / pandas)
+  3. Nettoyage des échantillons               (CPU / PyArrow)
+  4. Filtrage itératif par seuils d'activité  (CPU / PyArrow)
+  5. Split train/test + matrices CSR + sauvegarde  (CPU / PyArrow)
 
 Usage : python main.py
 """
