@@ -1,62 +1,117 @@
-"""main.py — Orchestrateur pour l'échantillonnage GPU."""
+"""
+main.py — Orchestrateur complet du pipeline de préparation des données.
+
+Exécute séquentiellement :
+  1. Échantillonnage des utilisateurs actifs  (GPU si disponible, sinon CPU)
+  2. Échantillonnage temporel                 (GPU si disponible, sinon CPU)
+  3. Nettoyage des échantillons               (CPU / pandas)
+  4. Filtrage itératif par seuils d'activité  (CPU / pandas)
+  5. Split train/test + matrices CSR + sauvegarde  (CPU / pandas)
+
+Usage : python main.py
+"""
 
 import gc
+import time
+
 from precursor import (
-    RAPIDS_AVAILABLE, 
-    RAW_BOOKS_PATH, 
-    PROCESSED_DATA_DIR, 
+    RAPIDS_AVAILABLE,
+    RAW_BOOKS_PATH,
+    SAMPLE_ACTIVE_DIR,
+    SAMPLE_TEMPORAL_DIR,
     TARGET_YEARS,
-    sample_active_users_gpu, 
+    # GPU sampling
+    sample_active_users_gpu,
     sample_temporal_gpu,
-    flush_ram, 
+    # CPU sampling (fallback)
+    sample_active_users_cpu,
+    sample_temporal_cpu,
+    # Post-processing (CPU)
+    clean_samples,
+    filter_samples,
+    split_and_save,
+    # Memory helpers
+    flush_ram,
     flush_gpu,
 )
 
-MAX_MANAGED_MEMORY = 50 * (1024 ** 3)  # 50 GB safety cap
-
-
-def init_rmm():
-    """Initialize RMM once with a capped managed-memory pool."""
-    import rmm
-    import cupy as cp
-    from rmm.allocators.cupy import rmm_cupy_allocator
-
-    managed_mr = rmm.mr.ManagedMemoryResource()
-    limited_mr = rmm.mr.LimitingResourceAdaptor(managed_mr, allocation_limit=MAX_MANAGED_MEMORY)
-    pool_mr = rmm.mr.PoolMemoryResource(
-        limited_mr,
-        initial_pool_size=2 * (1024 ** 3),
-        maximum_pool_size=MAX_MANAGED_MEMORY,
-    )
-    rmm.mr.set_current_device_resource(pool_mr)
-    cp.cuda.set_allocator(rmm_cupy_allocator)
-    print(f"RMM initialized: {MAX_MANAGED_MEMORY / (1024**3):.0f} GB cap")
-
 
 def main():
-    if not RAPIDS_AVAILABLE:
-        print("RAPIDS non disponible.")
-        return
+    t_start = time.time()
 
-    init_rmm()
+    use_gpu = RAPIDS_AVAILABLE
+    backend = "GPU (RAPIDS)" if use_gpu else "CPU (pandas)"
+    print(f"Pipeline de préparation — backend : {backend}\n")
 
-    print("\n=== Active Users Sampling ===")
-    sample_active_users_gpu(
-        RAW_BOOKS_PATH,
-        f"{PROCESSED_DATA_DIR}sample_gpu_active_users_original.parquet",
-    )
+    # ── 1. Échantillonnage : utilisateurs actifs ─────────────────────
 
-    # Full cleanup between runs
+    print("=" * 70)
+    print("  ÉTAPE 1/5 : Échantillonnage des utilisateurs actifs")
+    print("=" * 70)
+
+    active_out = f"{SAMPLE_ACTIVE_DIR}/active_users_original.parquet"
+    if use_gpu:
+        sample_active_users_gpu(RAW_BOOKS_PATH, active_out)
+    else:
+        sample_active_users_cpu(RAW_BOOKS_PATH, active_out)
+
     flush_ram()
     flush_gpu()
     gc.collect()
 
-    print("\n=== Temporal Sampling ===")
-    sample_temporal_gpu(
-        RAW_BOOKS_PATH,
-        f"{PROCESSED_DATA_DIR}sample_gpu_temporal_original.parquet",
-        target_years=TARGET_YEARS,
-    )
+    # ── 2. Échantillonnage : temporel ────────────────────────────────
+
+    print("\n" + "=" * 70)
+    print("  ÉTAPE 2/5 : Échantillonnage temporel")
+    print("=" * 70)
+
+    temporal_out = f"{SAMPLE_TEMPORAL_DIR}/temporal_original.parquet"
+    if use_gpu:
+        sample_temporal_gpu(
+            RAW_BOOKS_PATH, temporal_out, target_years=TARGET_YEARS,
+        )
+    else:
+        sample_temporal_cpu(
+            RAW_BOOKS_PATH, temporal_out, target_years=TARGET_YEARS,
+        )
+
+    flush_ram()
+    flush_gpu()
+    gc.collect()
+
+    # ── 3. Nettoyage ─────────────────────────────────────────────────
+
+    print("\n" + "=" * 70)
+    print("  ÉTAPE 3/5 : Nettoyage des échantillons")
+    print("=" * 70)
+
+    clean_samples()
+    flush_ram()
+
+    # ── 4. Filtrage ──────────────────────────────────────────────────
+
+    print("\n" + "=" * 70)
+    print("  ÉTAPE 4/5 : Filtrage par seuils d'activité")
+    print("=" * 70)
+
+    filter_samples()
+    flush_ram()
+
+    # ── 5. Split + sauvegarde ────────────────────────────────────────
+
+    print("\n" + "=" * 70)
+    print("  ÉTAPE 5/5 : Split train/test + matrices CSR + sauvegarde")
+    print("=" * 70)
+
+    split_and_save()
+    flush_ram()
+
+    # ── Résumé ───────────────────────────────────────────────────────
+
+    elapsed = time.time() - t_start
+    print(f"\n{'═' * 70}")
+    print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
+    print(f"{'═' * 70}")
 
 
 if __name__ == "__main__":
