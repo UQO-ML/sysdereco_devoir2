@@ -107,7 +107,7 @@ try:
     try:
         _MANAGED_MEMORY_CAP = _compute_managed_memory_cap()
     except Exception:
-        _MANAGED_MEMORY_CAP = 50 * (1024**3)  # safe fallback
+        _MANAGED_MEMORY_CAP = 8 * (1024**3)  # safe fallback
     
     print(f"Managed_memory_cap: {_MANAGED_MEMORY_CAP/(1024**3)} GB")
     
