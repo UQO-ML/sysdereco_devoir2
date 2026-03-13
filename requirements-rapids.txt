@@ -1,0 +1,13 @@
+# RAPIDS (GPU) — CUDA 12 uniquement. À installer après requirements.txt.
+# Nécessite : nvidia-smi, Python 3.10–3.12 (wheels RAPIDS pas toujours dispo pour 3.13+).
+#
+# Ordre d’installation :
+#   pip install -r requirements.txt
+#   pip install -r requirements-rapids.txt
+#
+# Utilisé par scripts/precursor.py pour l’échantillonnage GPU (cudf, cupy, rmm).
+# Sans RAPIDS, precursor utilise les variantes CPU (pandas/polars).
+
+cudf-cu12
+rmm-cu12
+cupy-cuda12x
