@@ -16,7 +16,7 @@ Projet 2 du cours *Systèmes de recommandation* (INF6083). Recommandation **bas�
 
 - **Python** 3.10+ max 3.13
 - **Environnement** : venv recommandé (Linux / Windows).
-- **Optionnel** : CUDA pour accélération GPU (PyTorch).
+- **Optionnel** : CUDA pour accélération GPU (Cupy, CuDl, Rmm, PyTorch).
 
 ---
 
