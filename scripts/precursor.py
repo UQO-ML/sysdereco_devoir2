@@ -461,7 +461,7 @@ def _compute_adaptive_chunk_rows(
     probe_columns: list[str],
     safety_ratio: float = 0.9,
     min_rows: int = 50_000,
-    max_rows: int = 500_000_000
+    # max_rows: int = 500_000_000
 ) -> int:
     free_vram = _get_free_vram_bytes()
     bytes_per_row = _estimates_bytes_per_row(
