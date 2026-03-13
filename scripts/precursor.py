@@ -28,6 +28,8 @@ import os
 import random
 import time
 from pathlib import Path
+from collections import Counter, deque
+from collections.abc import Callable
 
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -393,7 +395,7 @@ def deterministic_sample_users(
             continue
         seen.add(s)
 
-        h = hashlib.blake2b(f"{seed}:{s}".encode("utf-8"), digest_size=8).digest()
+        h = hashlib.blake2b(f"{seed}:{PANDATV: 손밍s}".encode("utf-8"), digest_size=8).digest()
         score = int.from_bytes(h, "big")
         scored.append((score, s))
 
@@ -401,6 +403,139 @@ def deterministic_sample_users(
     return [uid for _, uid in scored[:min(num_users, len(scored))]]
 
 
+def _get_free_vram_bytes(
+    device_index: int = 0, 
+    fallback_bytes: int = 2 * 1024**3
+) -> int:
+    if pynvml is not None:
+        try:
+            pynvml.nvmlInit()
+            handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
+            info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            return max(1, int(info.free))
+        except Exception:
+            pass
+        finally:
+            try:
+                pynvml.nvmlShutdown()
+            except Exception:
+                pass
+    if RAPIDS_AVAILABLE and cp is not None:
+        try:
+            free_bytes, _ = cp.cuda.runtime.memGetInfo()
+            return max(1, int(free_bytes))
+        except Exception:
+            pass
+    return max(1, int(fallback_bytes))
+
+
+
+def _estimates_bytes_per_row(
+    parquet_path: str,
+    columns: list[str],
+    sample_rows: int = CHUNK_SIZE,
+)-> int:
+    pf = pq.ParquetFile(parquet_path)
+
+    batches = pf.iter_batches(
+        batch_size=sample_rows,
+        columns=columns if columns else None,
+    )
+    first_batch = next(batches, None)
+    table = pa.Table.from_batches([first_batch])
+    return max(1, table.nbytes // table.num_rows)
+
+
+def _compute_adaptive_chunk_rows(
+    parquet_path: str,
+    probe_columns: list[str],
+    safety_ratio: float = 0.7,
+    min_rows: int = 50_000,
+    max_rows: int = 5_000_000
+) -> int:
+    free_vram = _get_free_vram_bytes()
+    bytes_per_row = _estimates_bytes_per_row(
+        parquet_path,
+        probe_columns
+        )
+    bytes_per_row = max(1, int(bytes_per_row))
+
+    raw_rows = int((free_vram * float(safety_ratio)) / bytes_per_row)
+
+    clamped_rows = max(min_rows, min(max_rows, raw_rows))
+    return int(clamped_rows)
+
+
+def _is_oom_error(exc: Exception) -> bool:
+    if isinstance(exc, MemoryError):
+        return True
+
+    msg = str(exc).lower()
+    patterns = (
+        "out of memory",
+        "cudaerrormemoryallocation",
+        "std::bad_alloc",
+        "rmm",
+        "memory pool",
+    )
+    if any(p in msg for p in patterns):
+        return True
+
+    # Optionnel: checks de types RAPIDS si disponibles
+    try:
+        import rmm  # noqa: F401
+        # selon versions RAPIDS, les classes peuvent varier
+    except Exception:
+        pass
+
+    return False
+
+
+def _process_table_with_oom_retry(
+    table: pa.Table,
+    process_fn: Callable[[pa.Table], None],
+    min_rows: int,
+    verbose: bool = False,
+) -> tuple[int, int]:
+    """
+    Traite une table Arrow avec retry OOM via split binaire.
+    Returns: (oom_retries, split_count)
+    """
+    queue = deque([table])
+    oom_retries = 0
+    split_count = 0
+
+    while queue:
+        current = queue.popleft()
+        try:
+            process_fn(current)
+            _flush_memory()
+        except Exception as exc:
+            if not _is_oom_error(exc):
+                raise
+
+            oom_retries += 1
+            _flush_memory()
+
+            if current.num_rows <= min_rows:
+                # trop petit pour split, on remonte l'erreur
+                raise
+
+            mid = current.num_rows // 2
+            left = current.slice(0, mid)
+            right = current.slice(mid)
+
+            split_count += 1
+            # traiter left puis right
+            queue.appendleft(right)
+            queue.appendleft(left)
+
+            if verbose:
+                print(f"  OOM retry: split {current.num_rows:,} -> {left.num_rows:,} + {right.num_rows:,}")
+
+    return oom_retries, split_count
+
+    
 # =============================================================================
 #   ÉCHANTILLONNAGE GPU
 # =============================================================================
@@ -413,6 +548,8 @@ def sample_active_users_gpu(
     seed: int = SEED,
     verbose: bool = True,
 ) -> int | None:
+    start = time.time()
+
     """
     Échantillonne les utilisateurs « actifs » (≥ min_reviews reviews) via GPU.
 
@@ -433,19 +570,61 @@ def sample_active_users_gpu(
 
     if verbose:
         _print_gpu_status("Before start")
-    start = time.time()
 
     if verbose:
         print("Phase 1 : Chargement en mémoire GPU...")
-    gdf = cudf.read_parquet(parquet_path)
-    gdf["rating"] = gdf["rating"].astype("int8")
-    if verbose:
-        _print_gpu_status("After load")
-        print(f"  GPU DataFrame: {gdf.memory_usage(deep=True).sum() / 1e9:.2f} GB")
 
-    # value_counts() retourne une Series indexée par user_id, valeurs = nb de reviews
-    user_counts = gdf["user_id"].value_counts()
-    active_users = user_counts[user_counts >= min_reviews].index
+    batch_size_a = _compute_adaptive_chunk_rows(
+        parquet_path,
+        ["user_id"],
+    )
+
+    if verbose:
+        free = _get_free_vram_bytes()
+        bpr = _estimates_bytes_per_row(parquet_path, ["user_id"])
+        print(f"  Pass A: batch_size={batch_size_a:,} (free_vram={free/1e9:.2f} GB, bpr={bpr} B)")
+
+    user_counts_cpu = Counter()
+
+    oom_retries_total = 0
+
+    pf = pq.ParquetFile(parquet_path)
+    for batch in pf.iter_batches(batch_size=batch_size_a, columns=["user_id"]):
+        table = pa.Table.from_batches([batch])
+
+        def _count_chunk(t: pa.Table) -> None:
+            gdf = cudf.DataFrame.from_arrow(t)
+            vc = gdf["user_id"].value_counts()
+            # Small transfer: only (user_id, count) pairs -> CPU
+            pdf = vc.to_pandas()
+            for uid, cnt in zip(pdf.index, pdf.values):
+                user_counts_cpu[str(uid)] += int(cnt)
+            if verbose:
+                _print_gpu_status("After load")
+                print(f"  GPU DataFrame: {gdf.memory_usage(deep=True).sum() / 1e9:.2f} GB")
+
+            del gdf, vc, pdf
+
+        retries, splits = _process_table_with_oom_retry(
+            table, _count_chunk, min_rows=50_000, verbose=verbose,
+        )
+        oom_retries_total += retries
+
+    del pf
+
+    active_users = [uid for uid, cnt in user_counts_cpu.items() if cnt >= min_reviews]
+    del user_counts_cpu
+
+    if verbose:
+        print(f"  Utilisateurs actifs (>= {min_reviews}): {len(active_users):,}")
+
+    selected_users = deterministic_sample_users(active_users, num_users=num_users, seed=seed)
+    del active_users
+    
+    if verbose:
+        print(f"  Utilisateurs échantillonnés: {len(selected_users):,}")
+
+    _flush_memory()
 
     # # Sélection aléatoire sur GPU — seuls les 50k indices sont copiés vers le CPU
     # cp.random.seed(seed)
@@ -454,16 +633,6 @@ def sample_active_users_gpu(
     # active_users_series = active_users.to_series().reset_index(drop=True)
     # selected_users = active_users_series.iloc[cp.asnumpy(indices)]
     # del user_counts, active_users, active_users_series, indices
-
-    # Sélection deterministique
-    active_users_series = active_users.to_series().reset_index(drop=True)
-    active_users_list = active_users_series.to_pandas().astype(str).tolist()
-    selected_users = deterministic_sample_users(
-        active_users_list,
-        num_users=num_users,
-        seed=seed,
-    )
-    del user_counts, active_users, active_users_series, active_users_list
 
     if verbose:
         print(f"  Utilisateurs actifs sélectionnés: {len(selected_users):,}")
@@ -474,43 +643,75 @@ def sample_active_users_gpu(
 
     if verbose:
         print("\nPhase 2 : Filtrage...")
-    selected_series = cudf.Series(selected_users)
+    
+    batch_size_b = _compute_adaptive_chunk_rows(parquet_path, [])  # all columns
+
+    if verbose:
+        free = _get_free_vram_bytes()
+        bpr = _estimates_bytes_per_row(parquet_path, [])
+        print(f"  Pass B: batch_size={batch_size_b:,} (free_vram={free/1e9:.2f} GB, bpr={bpr} B)")
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    selected_set_gpu = cudf.Series(selected_users)
     del selected_users
 
-    mask = gdf["user_id"].isin(selected_series)
-    sample_gdf = gdf[mask]
-    if verbose:
-        print(f"  Reviews correspondantes : {len(sample_gdf):,}")
-    del gdf, mask, selected_series
-    _flush_memory()
-    if verbose:
-        _print_gpu_status("After filter flush")
+    writer = None
+    n_reviews = 0
 
-    if verbose:
-        print("\nPhase 3 : Sauvegarde Parquet (GPU → disque)...")
-    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    sample_gdf.to_parquet(output_path, compression="snappy")
-    n_reviews = len(sample_gdf)
-    n_users_out = sample_gdf["user_id"].nunique()
-    del sample_gdf
+    try:
+        pf2 = pq.ParquetFile(parquet_path)
+        for batch in pf2.iter_batches(batch_size=batch_size_b):
+            table = pa.Table.from_batches([batch])
+
+            def _filter_chunk(t: pa.Table) -> None:
+                nonlocal writer, n_reviews
+                gdf = cudf.DataFrame.from_arrow(t)
+                filtered = gdf[gdf["user_id"].isin(selected_set_gpu)]
+
+                if len(filtered) == 0:
+                    del gdf, filtered
+                    return
+
+                out_arrow = filtered.to_arrow()
+                del gdf, filtered
+
+                if writer is None:
+                    writer = pq.ParquetWriter(output_path, out_arrow.schema, compression="snappy")
+                writer.write_table(out_arrow)
+                n_reviews += out_arrow.num_rows
+
+            retries, splits = _process_table_with_oom_retry(
+                table, _filter_chunk, min_rows=50_000, verbose=verbose,
+            )
+            oom_retries_total += retries
+
+        del pf2, selected_set_gpu
+    finally:
+        if writer is not None:
+            writer.close()
+
     _flush_memory()
 
     if verbose:
         elapsed = time.time() - start
         print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,} — Utilisateurs: {n_users_out:,}")
         _print_gpu_status("Final cleanup")
+        if oom_retries_total > 0:
+            print(f"  OOM retries: {oom_retries_total}")
+        _print_gpu_status("Final")
     return n_reviews
 
 
 def sample_temporal_gpu(
     parquet_path: str,
     output_path: str,
-    target_years: list[int] | None = None,
+    target_years_set: list[int] | None = None,
     min_reviews: int = MIN_REVIEWS,
     num_users: int = NUM_USERS,
     seed: int = SEED,
     verbose: bool = True,
 ) -> int | None:
+    start = time.time()
     """
     Échantillonnage temporel via GPU : filtre par années cibles, puis
     ne garde que les utilisateurs ayant ≥ min_reviews dans la période,
@@ -530,90 +731,171 @@ def sample_temporal_gpu(
     flush_ram()
     flush_gpu()
 
-    start = time.time()
     if verbose:
         print("Chargement en mémoire GPU...")
     _flush_memory()
     if verbose:
         _print_gpu_status("Load start")
 
-    gdf = cudf.read_parquet(parquet_path)
-    gdf["rating"] = gdf["rating"].astype("int8")
-    gdf["timestamp"] = cudf.to_datetime(gdf["timestamp"], unit="ms")
-    gdf["year"] = gdf["timestamp"].dt.year
+    batch_size_a = _compute_adaptive_chunk_rows(parquet_path, ["user_id", "timestamp"])
     if verbose:
-        print(f"  Mémoire GPU : {gdf.memory_usage(deep=True).sum() / 1e9:.2f} Go")
+        print(f"  Pass A: batch_size={batch_size_a:,}")
 
-    # Filtrer à la période cible et libérer immédiatement le DF complet
-    gdf_period = gdf[gdf["year"].isin(target_years)]
-    del gdf
+
+
+    user_counts_cpu = Counter()
+    oom_retries_total = 0
+
+    pf = pq.ParquetFile(parquet_path)
+    for batch in pf.iter_batches(batch_size=batch_size_a, columns=["user_id", "timestamp"]):
+        table = pa.Table.from_batches([batch])
+
+        def _count_temporal_chunk(t: pa.Table) -> None:
+            gdf = cudf.DataFrame.from_arrow(t)
+
+            # Normalize timestamp -> year
+            ts = gdf["timestamp"]
+            if not str(ts.dtype).startswith("datetime64"):
+                gdf["timestamp"] = cudf.to_datetime(ts, unit="ms", errors="coerce")
+            gdf["year"] = gdf["timestamp"].dt.year
+
+            # Keep only target years
+            gdf_period = gdf[gdf["year"].isin(target_years_set)]
+
+            if len(gdf_period) == 0:
+                del gdf, gdf_period
+                return
+
+            vc = gdf_period["user_id"].value_counts()
+            pdf = vc.to_pandas()
+            for uid, cnt in zip(pdf.index, pdf.values):
+                user_counts_cpu[str(uid)] += int(cnt)
+
+            # Statistiques par année (petit transfert vers pandas pour affichage)
+            year_stats = (
+                gdf_period.groupby("year")
+                .agg({"user_id": ["count", "nunique"], "rating": "mean"})
+            )
+            ys = year_stats.to_pandas()
+            del year_stats
+            ys.columns = ["review_count", "unique_users", "avg_rating"]
+            ys = ys.sort_index()
+            if verbose:
+                print(f"\n── Répartition {target_years[0]}–{target_years[-1]} ──")
+                print(ys.to_string())
+                print(f"\nTotal reviews : {ys['review_count'].sum():,}")
+            del ys
+
+            if verbose:
+                print(f"  Reviews dans période : {len(gdf_period):,}")
+
+            del gdf, gdf_period, vc, pdf
+
+        retries, _ = _process_table_with_oom_retry(
+            table, _count_temporal_chunk, min_rows=50_000, verbose=verbose,
+        )
+        oom_retries_total += retries
+
+    del pf
     _flush_memory()
 
-    # Statistiques par année (petit transfert vers pandas pour affichage)
-    year_stats = (
-        gdf_period.groupby("year")
-        .agg({"user_id": ["count", "nunique"], "rating": "mean"})
-    )
-    ys = year_stats.to_pandas()
-    del year_stats
-    ys.columns = ["review_count", "unique_users", "avg_rating"]
-    ys = ys.sort_index()
-    if verbose:
-        print(f"\n── Répartition {target_years[0]}–{target_years[-1]} ──")
-        print(ys.to_string())
-        print(f"\nTotal reviews : {ys['review_count'].sum():,}")
-    del ys
+
+    active_users = [uid for uid, cnt in user_counts_cpu.items() if cnt >= min_reviews]
+    del user_counts_cpu
 
     if verbose:
-        print(f"  Reviews dans période : {len(gdf_period):,}")
+        print(f"  Utilisateurs actifs dans période (>= {min_reviews}): {len(active_users):,}")
 
-    # Compter les reviews par utilisateur dans la période
-    user_counts = gdf_period["user_id"].value_counts().reset_index()
-    user_counts.columns = ["user_id", "review_count"]
-    active_in_period = user_counts[user_counts["review_count"] >= min_reviews]
-    del user_counts
+    selected_users = deterministic_sample_users(active_users, num_users=num_users, seed=seed)
+    del active_users
+
     if verbose:
-        print(f"Active users (>= {min_reviews} reviews): {len(active_in_period):,}")
+        print(f"  Utilisateurs échantillonnés: {len(selected_users):,}")
+
+    _flush_memory()
+
 
     # # Sélection aléatoire sur GPU
     # active_user_ids = active_in_period["user_id"].reset_index(drop=True)
     # del active_in_period
-
     # cp.random.seed(seed)
     # n_to_sample = min(num_users, len(active_user_ids))
     # indices = cp.random.choice(len(active_user_ids), size=n_to_sample, replace=False)
     # sampled_series = active_user_ids.iloc[cp.asnumpy(indices)]
     # del active_user_ids, indices
 
-    # Sélection deterministe
-    active_user_ids = active_in_period["user_id"].reset_index(drop=True)
-    active_user_ids_list = active_user_ids.to_pandas().astype(str).tolist()
-    del active_in_period, active_user_ids
+    batch_size_b = _compute_adaptive_chunk_rows(parquet_path, [])
 
-    sampled_users = deterministic_sample_users(
-        active_user_ids_list,
-        num_users=num_users,
-        seed=seed,
-    )
-    sampled_series = cudf.Series(sampled_users)
-
-    del active_user_ids_list, sampled_users
-
-
-    sample_gdf = gdf_period[gdf_period["user_id"].isin(sampled_series)]
     if verbose:
-        print(f"  Reviews : {len(sample_gdf):,} — Utilisateurs : {sample_gdf['user_id'].nunique():,}")
-    del gdf_period, sampled_series
-    _flush_memory()
+        print(f"  Pass B: batch_size={batch_size_b:,}")
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    sample_gdf.to_parquet(output_path, compression="snappy")
-    n_reviews = len(sample_gdf)
-    del sample_gdf
+    selected_set_gpu = cudf.Series(selected_users)
+    del selected_users
+
+    writer = None
+    n_reviews = 0
+
+    try:
+        pf2 = pq.ParquetFile(parquet_path)
+        for batch in pf2.iter_batches(batch_size=batch_size_b):
+            table = pa.Table.from_batches([batch])
+
+            def _filter_temporal_chunk(t: pa.Table) -> None:
+                nonlocal writer, n_reviews
+                gdf = cudf.DataFrame.from_arrow(t)
+
+                # Year filter
+                ts = gdf["timestamp"]
+                if not str(ts.dtype).startswith("datetime64"):
+                    gdf["timestamp"] = cudf.to_datetime(ts, unit="ms", errors="coerce")
+                gdf["year"] = gdf["timestamp"].dt.year
+                gdf_period = gdf[gdf["year"].isin(target_years_set)]
+                del gdf
+
+                if len(gdf_period) == 0:
+                    del gdf_period
+                    return
+
+                # User filter
+                filtered = gdf_period[gdf_period["user_id"].isin(selected_set_gpu)]
+                del gdf_period
+
+                if len(filtered) == 0:
+                    del filtered
+                    return
+
+                # Drop helper column before writing
+                if "year" in filtered.columns:
+                    filtered = filtered.drop(columns=["year"])
+
+                out_arrow = filtered.to_arrow()
+                del filtered
+
+                if writer is None:
+                    writer = pq.ParquetWriter(output_path, out_arrow.schema, compression="snappy")
+                writer.write_table(out_arrow)
+                n_reviews += out_arrow.num_rows
+
+            retries, _ = _process_table_with_oom_retry(
+                table, _filter_temporal_chunk, min_rows=50_000, verbose=verbose,
+            )
+            oom_retries_total += retries
+
+        del pf2, selected_set_gpu
+    finally:
+        if writer is not None:
+            writer.close()
+
     _flush_memory()
 
     if verbose:
-        print(f"\n⚡ Temps: {time.time() - start:.2f}s — Reviews écrites: {n_reviews:,}")
+        elapsed = time.time() - start
+        print(f"\n⚡ Temps: {elapsed:.2f}s — Reviews écrites: {n_reviews:,}")
+        if oom_retries_total > 0:
+            print(f"  OOM retries: {oom_retries_total}")
+        _print_gpu_status("Final")
+
     return n_reviews
 
 

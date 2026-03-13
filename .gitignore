@@ -212,3 +212,4 @@ data/processed/
 *.csv
 *.parquet
 amazon-reviews*
+*.tar.gz
