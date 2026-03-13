@@ -54,79 +54,79 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 RAPIDS_AVAILABLE = False
-# cp = None
-# try:
-#     import cudf
-#     import cupy as cp
-#     import rmm
-#     from rmm.allocators.cupy import rmm_cupy_allocator
+cp = None
+try:
+    import cudf
+    import cupy as cp
+    import rmm
+    from rmm.allocators.cupy import rmm_cupy_allocator
 
-#     def _align_down_256(n: int) -> int:
-#         return n - (n % 256)
+    def _align_down_256(n: int) -> int:
+        return n - (n % 256)
 
-#     def _compute_managed_memory_cap(
-#         ram_reserve_gb: float = 4.0,
-#         vram_fraction: float = 0.90,
-#     ) -> int:
-#         """
-#         Compute a safe RMM managed-memory cap based on actual hardware.
+    def _compute_managed_memory_cap(
+        ram_reserve_gb: float = 4.0,
+        vram_fraction: float = 0.90,
+    ) -> int:
+        """
+        Compute a safe RMM managed-memory cap based on actual hardware.
         
-#         With managed_memory=True, CUDA UVM can spill from VRAM to RAM.
-#         The cap must account for both:
-#         - VRAM: use most of it (vram_fraction)
-#         - RAM spill: leave ram_reserve_gb free for the OS, Python, pandas, etc.
+        With managed_memory=True, CUDA UVM can spill from VRAM to RAM.
+        The cap must account for both:
+        - VRAM: use most of it (vram_fraction)
+        - RAM spill: leave ram_reserve_gb free for the OS, Python, pandas, etc.
         
-#         Returns the cap in bytes.
-#         """
-#         import pynvml
-#         pynvml.nvmlInit()
-#         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-#         vram_total = pynvml.nvmlDeviceGetMemoryInfo(handle).total
-#         pynvml.nvmlShutdown()
+        Returns the cap in bytes.
+        """
+        import pynvml
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        vram_total = pynvml.nvmlDeviceGetMemoryInfo(handle).total
+        pynvml.nvmlShutdown()
 
-#         # Total system RAM (requires psutil, or read from /proc/meminfo)
-#         try:
-#             import psutil
-#             ram_total = psutil.virtual_memory().total
-#         except ImportError:
-#             # Fallback: read from /proc/meminfo (Linux only)
-#             with open("/proc/meminfo") as f:
-#                 for line in f:
-#                     if line.startswith("MemTotal:"):
-#                         ram_total = int(line.split()[1]) * 1024  # kB → bytes
-#                         break
+        # Total system RAM (requires psutil, or read from /proc/meminfo)
+        try:
+            import psutil
+            ram_total = psutil.virtual_memory().total
+        except ImportError:
+            # Fallback: read from /proc/meminfo (Linux only)
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        ram_total = int(line.split()[1]) * 1024  # kB → bytes
+                        break
 
-#         usable_vram = int(vram_total * vram_fraction)
-#         usable_ram_spill = ram_total - int(ram_reserve_gb * 1024**3)
+        usable_vram = int(vram_total * vram_fraction)
+        usable_ram_spill = ram_total - int(ram_reserve_gb * 1024**3)
         
-#         # The cap is VRAM + how much RAM we're willing to let UVM spill into
-#         cap = usable_vram + max(usable_ram_spill, 0)
+        # The cap is VRAM + how much RAM we're willing to let UVM spill into
+        cap = usable_vram + max(usable_ram_spill, 0)
         
-#         return _align_down_256(cap)
+        return _align_down_256(cap)
 
-#     try:
-#         _MANAGED_MEMORY_CAP = _compute_managed_memory_cap()
-#     except Exception:
-#         _MANAGED_MEMORY_CAP = 50 * (1024**3)  # safe fallback
+    try:
+        _MANAGED_MEMORY_CAP = _compute_managed_memory_cap()
+    except Exception:
+        _MANAGED_MEMORY_CAP = 50 * (1024**3)  # safe fallback
     
-#     print(f"Managed_memory_cap: {_MANAGED_MEMORY_CAP/(1024**3)} GB")
+    print(f"Managed_memory_cap: {_MANAGED_MEMORY_CAP/(1024**3)} GB")
     
-#     managed_mr = rmm.mr.ManagedMemoryResource()
-#     limited_mr = rmm.mr.LimitingResourceAdaptor(
-#         managed_mr,
-#         allocation_limit=_MANAGED_MEMORY_CAP,
-#     )
-#     pool_mr = rmm.mr.PoolMemoryResource(
-#         limited_mr,
-#         initial_pool_size=2 * (1024**3),
-#         maximum_pool_size=_MANAGED_MEMORY_CAP,
-#     )
-#     rmm.mr.set_current_device_resource(pool_mr)
-#     cp.cuda.set_allocator(rmm_cupy_allocator)
+    managed_mr = rmm.mr.ManagedMemoryResource()
+    limited_mr = rmm.mr.LimitingResourceAdaptor(
+        managed_mr,
+        allocation_limit=_MANAGED_MEMORY_CAP,
+    )
+    pool_mr = rmm.mr.PoolMemoryResource(
+        limited_mr,
+        initial_pool_size=2 * (1024**3),
+        maximum_pool_size=_MANAGED_MEMORY_CAP,
+    )
+    rmm.mr.set_current_device_resource(pool_mr)
+    cp.cuda.set_allocator(rmm_cupy_allocator)
 
-#     RAPIDS_AVAILABLE = True
-# except ImportError:
-#     pass
+    RAPIDS_AVAILABLE = True
+except ImportError:
+    pass
 
 
 # =============================================================================
