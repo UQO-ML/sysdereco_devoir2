@@ -567,8 +567,9 @@ def sample_active_users_gpu(
     Échantillonne les utilisateurs « actifs » (≥ min_reviews reviews) via GPU.
 
     Charge le parquet complet en VRAM (cuDF), compte les reviews par user,
-    en tire num_users au hasard via CuPy, filtre leurs reviews et écrit
-    le résultat en Parquet (GPU → disque, sans grosse copie en RAM).
+    sélectionne de manière déterministe num_users utilisateurs (ranking par
+    hash via deterministic_sample_users), filtre leurs reviews et écrit le
+    résultat en Parquet (GPU → disque, sans grosse copie en RAM).
 
     Returns:
         Nombre de reviews écrites, ou None si RAPIDS n'est pas disponible.
