@@ -207,9 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 # Données volumineuses (décommenter si vous ne versionnez pas les jeux de données)
-data/raw/jsonl/*
-data/raw/parquet/*
-data/processed/*
+data/raw/jsonl/*.jsonl
+data/raw/parquet/*.parquet
+data/processed/sample*
 *.csv
 *.parquet
 *.jsonl
