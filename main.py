@@ -13,6 +13,7 @@ Usage : python main.py
 
 import gc
 import time
+import sys
 
 from scripts.precursor import (
     RAPIDS_AVAILABLE,
@@ -46,11 +47,13 @@ def main():
     print(f"Pipeline de préparation — backend : {backend}\n")
 
     # ── 0. Conversion Dataset ────────────────────────────────────────
+    result = False
     try:
         result = jsonl_to_parquet_conversion()
     except Exception as e:
-        print(f"  ⚠ Conversion Dataset jsonl_to_parquet_conversion ({e}),  : {result}")
-        
+        print(f"  ⚠ Conversion Dataset jsonl_to_parquet_conversion a échoué : {e}")
+        sys.exit(1) 
+               
     if result:
 
         # ── 1. Échantillonnage : utilisateurs actifs ─────────────────────
