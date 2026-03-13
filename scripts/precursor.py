@@ -444,7 +444,7 @@ def _droppable_columns(table: pa.Table) -> list[str]:
 def _estimates_bytes_per_row(
     parquet_path: str,
     columns: list[str],
-    sample_rows: int = CHUNK_SIZE,
+    sample_rows: int = 200_000,
 )-> int:
     pf = pq.ParquetFile(parquet_path)
 
@@ -684,9 +684,8 @@ def sample_active_users_gpu(
                 t_slim = t.drop(_droppable_columns(t))
                 gdf = cudf.DataFrame.from_arrow(t_slim)
                 mask = gdf["user_id"].isin(selected_set_gpu)
-                indices = mask[mask].index
-                    
-                if len(indices) == 0:
+                
+                if not mask.any():
                     del gdf, mask
                     return
                 # Filter the *original* Arrow table to preserve all columns
