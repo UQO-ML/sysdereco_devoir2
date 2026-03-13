@@ -25,7 +25,6 @@ import gc
 import glob
 import json
 import os
-import random
 import time
 from pathlib import Path
 from collections import Counter, deque
@@ -55,79 +54,79 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 RAPIDS_AVAILABLE = False
-cp = None
-try:
-    import cudf
-    import cupy as cp
-    import rmm
-    from rmm.allocators.cupy import rmm_cupy_allocator
+# cp = None
+# try:
+#     import cudf
+#     import cupy as cp
+#     import rmm
+#     from rmm.allocators.cupy import rmm_cupy_allocator
 
-    def _align_down_256(n: int) -> int:
-        return n - (n % 256)
+#     def _align_down_256(n: int) -> int:
+#         return n - (n % 256)
 
-    def _compute_managed_memory_cap(
-        ram_reserve_gb: float = 4.0,
-        vram_fraction: float = 0.90,
-    ) -> int:
-        """
-        Compute a safe RMM managed-memory cap based on actual hardware.
+#     def _compute_managed_memory_cap(
+#         ram_reserve_gb: float = 4.0,
+#         vram_fraction: float = 0.90,
+#     ) -> int:
+#         """
+#         Compute a safe RMM managed-memory cap based on actual hardware.
         
-        With managed_memory=True, CUDA UVM can spill from VRAM to RAM.
-        The cap must account for both:
-        - VRAM: use most of it (vram_fraction)
-        - RAM spill: leave ram_reserve_gb free for the OS, Python, pandas, etc.
+#         With managed_memory=True, CUDA UVM can spill from VRAM to RAM.
+#         The cap must account for both:
+#         - VRAM: use most of it (vram_fraction)
+#         - RAM spill: leave ram_reserve_gb free for the OS, Python, pandas, etc.
         
-        Returns the cap in bytes.
-        """
-        import pynvml
-        pynvml.nvmlInit()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-        vram_total = pynvml.nvmlDeviceGetMemoryInfo(handle).total
-        pynvml.nvmlShutdown()
+#         Returns the cap in bytes.
+#         """
+#         import pynvml
+#         pynvml.nvmlInit()
+#         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+#         vram_total = pynvml.nvmlDeviceGetMemoryInfo(handle).total
+#         pynvml.nvmlShutdown()
 
-        # Total system RAM (requires psutil, or read from /proc/meminfo)
-        try:
-            import psutil
-            ram_total = psutil.virtual_memory().total
-        except ImportError:
-            # Fallback: read from /proc/meminfo (Linux only)
-            with open("/proc/meminfo") as f:
-                for line in f:
-                    if line.startswith("MemTotal:"):
-                        ram_total = int(line.split()[1]) * 1024  # kB → bytes
-                        break
+#         # Total system RAM (requires psutil, or read from /proc/meminfo)
+#         try:
+#             import psutil
+#             ram_total = psutil.virtual_memory().total
+#         except ImportError:
+#             # Fallback: read from /proc/meminfo (Linux only)
+#             with open("/proc/meminfo") as f:
+#                 for line in f:
+#                     if line.startswith("MemTotal:"):
+#                         ram_total = int(line.split()[1]) * 1024  # kB → bytes
+#                         break
 
-        usable_vram = int(vram_total * vram_fraction)
-        usable_ram_spill = ram_total - int(ram_reserve_gb * 1024**3)
+#         usable_vram = int(vram_total * vram_fraction)
+#         usable_ram_spill = ram_total - int(ram_reserve_gb * 1024**3)
         
-        # The cap is VRAM + how much RAM we're willing to let UVM spill into
-        cap = usable_vram + max(usable_ram_spill, 0)
+#         # The cap is VRAM + how much RAM we're willing to let UVM spill into
+#         cap = usable_vram + max(usable_ram_spill, 0)
         
-        return _align_down_256(cap)
+#         return _align_down_256(cap)
 
-    try:
-        _MANAGED_MEMORY_CAP = _compute_managed_memory_cap()
-    except Exception:
-        _MANAGED_MEMORY_CAP = 50 * (1024**3)  # safe fallback
+#     try:
+#         _MANAGED_MEMORY_CAP = _compute_managed_memory_cap()
+#     except Exception:
+#         _MANAGED_MEMORY_CAP = 50 * (1024**3)  # safe fallback
     
-    print(f"Managed_memory_cap: {_MANAGED_MEMORY_CAP/(1024**3)} GB")
+#     print(f"Managed_memory_cap: {_MANAGED_MEMORY_CAP/(1024**3)} GB")
     
-    managed_mr = rmm.mr.ManagedMemoryResource()
-    limited_mr = rmm.mr.LimitingResourceAdaptor(
-        managed_mr,
-        allocation_limit=_MANAGED_MEMORY_CAP,
-    )
-    pool_mr = rmm.mr.PoolMemoryResource(
-        limited_mr,
-        initial_pool_size=2 * (1024**3),
-        maximum_pool_size=_MANAGED_MEMORY_CAP,
-    )
-    rmm.mr.set_current_device_resource(pool_mr)
-    cp.cuda.set_allocator(rmm_cupy_allocator)
+#     managed_mr = rmm.mr.ManagedMemoryResource()
+#     limited_mr = rmm.mr.LimitingResourceAdaptor(
+#         managed_mr,
+#         allocation_limit=_MANAGED_MEMORY_CAP,
+#     )
+#     pool_mr = rmm.mr.PoolMemoryResource(
+#         limited_mr,
+#         initial_pool_size=2 * (1024**3),
+#         maximum_pool_size=_MANAGED_MEMORY_CAP,
+#     )
+#     rmm.mr.set_current_device_resource(pool_mr)
+#     cp.cuda.set_allocator(rmm_cupy_allocator)
 
-    RAPIDS_AVAILABLE = True
-except ImportError:
-    pass
+#     RAPIDS_AVAILABLE = True
+# except ImportError:
+#     pass
 
 
 # =============================================================================
@@ -395,7 +394,7 @@ def deterministic_sample_users(
             continue
         seen.add(s)
 
-        h = hashlib.blake2b(f"{seed}:".encode("utf-8"), digest_size=8).digest()
+        h = hashlib.blake2b(f"{seed}:{s}".encode("utf-8"), digest_size=8).digest()
         score = int.from_bytes(h, "big")
         scored.append((score, s))
 
@@ -412,6 +411,7 @@ def _get_free_vram_bytes(
             pynvml.nvmlInit()
             handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
             info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            print(f"Free Vram : {int(info.free)/1e9:.2f}")
             return max(1, int(info.free))
         except Exception:
             pass
@@ -424,10 +424,18 @@ def _get_free_vram_bytes(
         try:
             free_bytes, _ = cp.cuda.runtime.memGetInfo()
             return max(1, int(free_bytes))
+            
         except Exception:
             pass
     return max(1, int(fallback_bytes))
 
+
+def _droppable_columns(table: pa.Table) -> list[str]:
+    dominated = []
+    for field in table.schema:
+        if pa.types.is_large_list(field.type) or pa.types.is_nested(field.type):
+            dominated.append(field.name)
+    return dominated
 
 
 def _estimates_bytes_per_row(
@@ -451,9 +459,9 @@ def _estimates_bytes_per_row(
 def _compute_adaptive_chunk_rows(
     parquet_path: str,
     probe_columns: list[str],
-    safety_ratio: float = 0.7,
+    safety_ratio: float = 0.9,
     min_rows: int = 50_000,
-    max_rows: int = 5_000_000
+    max_rows: int = 500_000_000
 ) -> int:
     free_vram = _get_free_vram_bytes()
     bytes_per_row = _estimates_bytes_per_row(
@@ -465,6 +473,8 @@ def _compute_adaptive_chunk_rows(
     raw_rows = int((free_vram * float(safety_ratio)) / bytes_per_row)
 
     clamped_rows = max(min_rows, min(max_rows, raw_rows))
+
+    print(f"Clamped_rows : {clamped_rows}")
     return int(clamped_rows)
 
 
@@ -668,9 +678,7 @@ def sample_active_users_gpu(
 
             def _filter_chunk(t: pa.Table) -> None:
                 nonlocal writer, n_reviews
-                # Drop columns cuDF can't handle; keep only what's needed for filtering
-                drop_cols = [c for c in t.column_names if t.schema.field(c).type in _unsupported_arrow_types(t)]
-                t_slim = t.drop(drop_cols) if drop_cols else t
+                t_slim = t.drop(_droppable_columns(t))
                 gdf = cudf.DataFrame.from_arrow(t_slim)
                 mask = gdf["user_id"].isin(selected_set_gpu)
                 indices = mask[mask].index
@@ -761,12 +769,13 @@ def sample_temporal_gpu(
         table = pa.Table.from_batches([batch])
 
         def _count_temporal_chunk(t: pa.Table) -> None:
-            gdf = cudf.DataFrame.from_arrow(t)
+            t_slim = t.drop(_droppable_columns(t))
+            gdf = cudf.DataFrame.from_arrow(t_slim)
 
             # Normalize timestamp -> year
             ts = gdf["timestamp"]
             if not str(ts.dtype).startswith("datetime64"):
-                gdf["timestamp"] = cudf.to_datetime(ts, unit="ms", errors="coerce")
+                gdf["timestamp"] = cudf.to_datetime(ts, unit="ms")
             gdf["year"] = gdf["timestamp"].dt.year
 
             # Keep only target years
@@ -788,7 +797,7 @@ def sample_temporal_gpu(
             )
             ys = year_stats.to_pandas()
             del year_stats
-            ys.columns = ["review_count", "unique_users", "avg_rating"]
+            ys.columns = ["review_count", "unique_users"]
             ys = ys.sort_index()
             if verbose:
                 print(f"\n── Répartition {target_years[0]}–{target_years[-1]} ──")
@@ -853,12 +862,15 @@ def sample_temporal_gpu(
 
             def _filter_temporal_chunk(t: pa.Table) -> None:
                 nonlocal writer, n_reviews
-                gdf = cudf.DataFrame.from_arrow(t)
+                t_slim = t.drop(_droppable_columns(t))
+                gdf = cudf.DataFrame.from_arrow(t_slim)
 
                 # Year filter
                 ts = gdf["timestamp"]
+
                 if not str(ts.dtype).startswith("datetime64"):
-                    gdf["timestamp"] = cudf.to_datetime(ts, unit="ms", errors="coerce")
+                    gdf["timestamp"] = cudf.to_datetime(ts, unit="ms")
+
                 gdf["year"] = gdf["timestamp"].dt.year
                 gdf_period = gdf[gdf["year"].isin(target_years_set)]
                 del gdf
