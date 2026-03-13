@@ -668,15 +668,19 @@ def sample_active_users_gpu(
 
             def _filter_chunk(t: pa.Table) -> None:
                 nonlocal writer, n_reviews
-                gdf = cudf.DataFrame.from_arrow(t)
-                filtered = gdf[gdf["user_id"].isin(selected_set_gpu)]
-
-                if len(filtered) == 0:
-                    del gdf, filtered
+                # Drop columns cuDF can't handle; keep only what's needed for filtering
+                drop_cols = [c for c in t.column_names if t.schema.field(c).type in _unsupported_arrow_types(t)]
+                t_slim = t.drop(drop_cols) if drop_cols else t
+                gdf = cudf.DataFrame.from_arrow(t_slim)
+                mask = gdf["user_id"].isin(selected_set_gpu)
+                indices = mask[mask].index
+                    
+                if len(indices) == 0:
+                    del gdf, mask
                     return
-
-                out_arrow = filtered.to_arrow()
-                del gdf, filtered
+                # Filter the *original* Arrow table to preserve all columns
+                out_arrow = t.filter(mask.to_arrow())
+                del gdf, mask
 
                 if writer is None:
                     writer = pq.ParquetWriter(output_path, out_arrow.schema, compression="snappy")
