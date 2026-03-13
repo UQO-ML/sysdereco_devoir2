@@ -68,9 +68,8 @@ sysdereco_devoir2/
 ## Exécution
 
 1. *(Optionnel)* Vérifier l’environnement : `python scripts/check_env.py`
-2. Données : placer dans `data/` les fichiers sources (ex. `meta_Books.jsonl.gz`, JSONL/Parquet d’interactions). L’échantillonnage et le prétraitement peuvent être lancés via `python scripts/precursor.py` (voir docstring dans le script).
-3. Notebook : `jupyter notebook notebook_recommandation_contenu.ipynb` (ou JupyterLab / VS Code). Exécuter les cellules dans l’ordre (Tâche 0 → … → Tâche 5).
-4. *(Optionnel)* Point d’entrée alternatif : `main.py` si le projet utilise un pipeline scripté.
+2. Données : placer dans `data/raw/jsonl/` les fichiers sources (ex. `Books.jsonl`, JSONL/Parquet d’interactions). L’échantillonnage et le prétraitement peuvent être lancés via `python main.py` (voir docstring dans le script).
+(TODO)3. Notebook : `jupyter notebook notebook_recommandation_contenu.ipynb` (ou JupyterLab / VS Code). Exécuter les cellules dans l’ordre (Tâche 0 → … → Tâche 5).
 
 ---
 
