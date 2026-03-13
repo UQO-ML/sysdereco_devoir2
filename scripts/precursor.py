@@ -395,7 +395,7 @@ def deterministic_sample_users(
             continue
         seen.add(s)
 
-        h = hashlib.blake2b(f"{seed}:{PANDATV: 손밍s}".encode("utf-8"), digest_size=8).digest()
+        h = hashlib.blake2b(f"{seed}:".encode("utf-8"), digest_size=8).digest()
         score = int.from_bytes(h, "big")
         scored.append((score, s))
 
@@ -442,6 +442,8 @@ def _estimates_bytes_per_row(
         columns=columns if columns else None,
     )
     first_batch = next(batches, None)
+    if first_batch is None or first_batch.num_rows == 0:
+        return 1
     table = pa.Table.from_batches([first_batch])
     return max(1, table.nbytes // table.num_rows)
 
@@ -548,8 +550,6 @@ def sample_active_users_gpu(
     seed: int = SEED,
     verbose: bool = True,
 ) -> int | None:
-    start = time.time()
-
     """
     Échantillonne les utilisateurs « actifs » (≥ min_reviews reviews) via GPU.
 
@@ -560,6 +560,9 @@ def sample_active_users_gpu(
     Returns:
         Nombre de reviews écrites, ou None si RAPIDS n'est pas disponible.
     """
+
+    start = time.time()
+
     if not RAPIDS_AVAILABLE:
         if verbose:
             print("ℹ RAPIDS non disponible — sample_active_users_gpu ignoré.")
@@ -694,7 +697,7 @@ def sample_active_users_gpu(
 
     if verbose:
         elapsed = time.time() - start
-        print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,} — Utilisateurs: {n_users_out:,}")
+        print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,}")
         _print_gpu_status("Final cleanup")
         if oom_retries_total > 0:
             print(f"  OOM retries: {oom_retries_total}")
@@ -705,13 +708,12 @@ def sample_active_users_gpu(
 def sample_temporal_gpu(
     parquet_path: str,
     output_path: str,
-    target_years_set: list[int] | None = None,
+    target_years: list[int] | None = None,
     min_reviews: int = MIN_REVIEWS,
     num_users: int = NUM_USERS,
     seed: int = SEED,
     verbose: bool = True,
 ) -> int | None:
-    start = time.time()
     """
     Échantillonnage temporel via GPU : filtre par années cibles, puis
     ne garde que les utilisateurs ayant ≥ min_reviews dans la période,
@@ -720,6 +722,8 @@ def sample_temporal_gpu(
     Returns:
         Nombre de reviews écrites, ou None si RAPIDS n'est pas disponible.
     """
+    start = time.time()
+
     if not RAPIDS_AVAILABLE:
         if verbose:
             print("ℹ RAPIDS non disponible — sample_temporal_gpu ignoré.")
@@ -727,6 +731,8 @@ def sample_temporal_gpu(
 
     if target_years is None:
         target_years = TARGET_YEARS
+
+    target_years_set = target_years
 
     flush_ram()
     flush_gpu()
@@ -774,7 +780,7 @@ def sample_temporal_gpu(
             # Statistiques par année (petit transfert vers pandas pour affichage)
             year_stats = (
                 gdf_period.groupby("year")
-                .agg({"user_id": ["count", "nunique"], "rating": "mean"})
+                .agg({"user_id": ["count", "nunique"]})
             )
             ys = year_stats.to_pandas()
             del year_stats
