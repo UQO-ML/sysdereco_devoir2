@@ -291,6 +291,8 @@ def jsonl_to_parquet_conversion() -> bool:
                         print(f"  ⚠ Schéma incohérent, reconversion : {jsonl_path}")
             except Exception as e:
                 print(f"  ⚠ Fichier existant invalide ({e}), reconversion : {parquet_path}")
+            else:
+               os.makedirs(parquet_path)
         
         # ── 2. Détection des colonnes à surcharger ───────────────────────────
         schema_initial = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
