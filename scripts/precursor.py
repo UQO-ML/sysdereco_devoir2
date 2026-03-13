@@ -139,6 +139,7 @@ PROCESSED_DATA_DIR = "data/processed/"
 RAW_JSONL_GLOB = f"{RAW_DATA_DIR}jsonl/*.jsonl"
 RAW_PARQUET_GLOB = f"{RAW_DATA_DIR}parquet/*.parquet"
 RAW_BOOKS_PATH = f"{RAW_DATA_DIR}parquet/Books.parquet"
+RAW_META_PATH = f"{RAW_DATA_DIR}parquet/meta_Books.parquet"
 RAW_JSONL_PATHS = sorted(glob.glob(RAW_JSONL_GLOB))
 RAW_PARQUET_PATHS = sorted(glob.glob(RAW_PARQUET_GLOB))
 
@@ -271,26 +272,28 @@ def jsonl_to_parquet_conversion() -> bool:
         parquet_path = jsonl_path.replace("jsonl", "parquet")
         
         # ── 1. Passer si déjà fait (avec vérification d'intégrité) ───────────
-        if os.path.exists(parquet_path):
-            try:
-                n_parquet = pl.scan_parquet(parquet_path).select(pl.len()).collect().item()
-                cols_parquet = set(pl.scan_parquet(parquet_path).collect_schema().names())
-                
-                with open(jsonl_path, "rb") as f:
-                    n_jsonl = sum(1 for line in f if line.strip())
-                
-                if n_parquet != n_jsonl:
-                    print(f"  ⚠ Nombre de lignes incohérent, reconversion : {jsonl_path}")
+        if os.path.exists(parquet_path) == False :
+            parquet_dir = os.path.dirname(parquet_path)
+            os.makedirs(parquet_dir, exist_ok=True)
+        try:
+            n_parquet = pl.scan_parquet(parquet_path).select(pl.len()).collect().item()
+            cols_parquet = set(pl.scan_parquet(parquet_path).collect_schema().names())
+            
+            with open(jsonl_path, "rb") as f:
+                n_jsonl = sum(1 for line in f if line.strip())
+            
+            if n_parquet != n_jsonl:
+                print(f"  ⚠ Nombre de lignes incohérent, reconversion : {jsonl_path}")
+            else:
+                schema_jsonl = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
+                cols_jsonl = set(schema_jsonl.names())
+                if cols_jsonl == cols_parquet:
+                    print(f"  ✓ Déjà converti (vérifié) : {parquet_path}")
+                    continue
                 else:
-                    schema_jsonl = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
-                    cols_jsonl = set(schema_jsonl.names())
-                    if cols_jsonl == cols_parquet:
-                        print(f"  ✓ Déjà converti (vérifié) : {parquet_path}")
-                        continue
-                    else:
-                        print(f"  ⚠ Schéma incohérent, reconversion : {jsonl_path}")
-            except Exception as e:
-                print(f"  ⚠ Fichier existant invalide ({e}), reconversion : {parquet_path}")
+                    print(f"  ⚠ Schéma incohérent, reconversion : {jsonl_path}")
+        except Exception as e:
+            print(f"  ⚠ Fichier existant invalide ({e}), reconversion : {parquet_path}")
         
         # ── 2. Détection des colonnes à surcharger ───────────────────────────
         schema_initial = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
