@@ -472,7 +472,7 @@ def _compute_adaptive_chunk_rows(
 
     raw_rows = int((free_vram * float(safety_ratio)) / bytes_per_row)
 
-    clamped_rows = max(min_rows, min(max_rows, raw_rows))
+    clamped_rows = max(min_rows, raw_rows)
 
     print(f"Clamped_rows : {clamped_rows}")
     return int(clamped_rows)
