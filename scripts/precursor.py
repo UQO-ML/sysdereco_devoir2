@@ -1,5 +1,5 @@
 """
-precursor.py — Échantillonnage et prétraitement pour le pipeline de recommandation.
+precursor.py - Échantillonnage et prétraitement pour le pipeline de recommandation.
 
 Ce module fournit le pipeline complet de préparation des données :
 
@@ -46,7 +46,7 @@ except ImportError:
     pynvml = None
 
 # ---------------------------------------------------------------------------
-# RAPIDS (optionnel) — cudf, cupy, rmm pour l'échantillonnage GPU
+# RAPIDS (optionnel) - cudf, cupy, rmm pour l'échantillonnage GPU
 # Le bloc try/except garantit que l'import ne casse rien sur une machine CPU.
 # Le pool RMM est initialisé une seule fois au chargement du module avec un
 # plafond de 50 Go : CUDA UVM spille en RAM quand la VRAM est pleine, et
@@ -93,7 +93,7 @@ try:
             with open("/proc/meminfo") as f:
                 for line in f:
                     if line.startswith("MemTotal:"):
-                        ram_total = int(line.split()[1]) * 1024  # kB → bytes
+                        ram_total = int(line.split()[1]) * 1024  # kB -> bytes
                         break
 
         usable_vram = int(vram_total * vram_fraction)
@@ -257,12 +257,12 @@ def _print_ram_status(label: str = "") -> None:
 
 def jsonl_to_parquet_conversion() -> bool:
 
-    print("╔══════════════════════════════════════════════════════════════════════╗")
-    print("║  CONVERSION JSONL → PARQUET                                         ║")
-    print("║  Lecture des fichiers JSONL bruts et conversion en Parquet (Polars). ║")
-    print("║  Le format Parquet offre une compression columnar 3-5× plus         ║")
-    print("║  compacte que JSONL et permet la lecture paresseuse (lazy scanning). ║")
-    print("╚══════════════════════════════════════════════════════════════════════╝")
+    print("+======================================================================+")
+    print("|  CONVERSION JSONL -> PARQUET                                         |")
+    print("|  Lecture des fichiers JSONL bruts et conversion en Parquet (Polars). |")
+    print("|  Le format Parquet offre une compression columnar 3-5× plus         |")
+    print("|  compacte que JSONL et permet la lecture paresseuse (lazy scanning). |")
+    print("+======================================================================+")
     print(f"  Fichiers JSONL trouvés : {len(RAW_JSONL_PATHS)}")
     print(f"  Colonnes numériques surveillées : {CANDIDATE_NUMERIC_COLUMNS}")
 
@@ -271,7 +271,7 @@ def jsonl_to_parquet_conversion() -> bool:
     for jsonl_path in RAW_JSONL_PATHS:
         parquet_path = jsonl_path.replace("jsonl", "parquet")
         
-        # ── 1. Passer si déjà fait (avec vérification d'intégrité) ───────────
+        # -- 1. Passer si déjà fait (avec vérification d'intégrité) -----------
         if os.path.exists(parquet_path) == False :
             parquet_dir = os.path.dirname(parquet_path)
             os.makedirs(parquet_dir, exist_ok=True)
@@ -295,13 +295,13 @@ def jsonl_to_parquet_conversion() -> bool:
         except Exception as e:
             print(f"  ⚠ Fichier existant invalide ({e}), reconversion : {parquet_path}")
         
-        # ── 2. Détection des colonnes à surcharger ───────────────────────────
+        # -- 2. Détection des colonnes à surcharger ---------------------------
         schema_initial = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
         cols_to_override = [c for c in schema_initial.names() if c in CANDIDATE_NUMERIC_COLUMNS]
         schema_overrides = {c: pl.Utf8 for c in cols_to_override} if cols_to_override else None
         
-        # ── 3. Conversion ────────────────────────────────────────────────────
-        print(f"  Conversion {jsonl_path} → {parquet_path}...")
+        # -- 3. Conversion ----------------------------------------------------
+        print(f"  Conversion {jsonl_path} -> {parquet_path}...")
         kwargs = {"schema_overrides": schema_overrides} if schema_overrides else {}
         lf = pl.scan_ndjson(jsonl_path, **kwargs)
         if cols_to_override:
@@ -312,7 +312,7 @@ def jsonl_to_parquet_conversion() -> bool:
         del lf
         gc.collect()
         
-        # ── 4. Intégrité : nombre de lignes (sans chargement complet) ────────
+        # -- 4. Intégrité : nombre de lignes (sans chargement complet) --------
         with open(jsonl_path, "rb") as f:
             n_jsonl = sum(1 for line in f if line.strip())
         n_parquet = pl.scan_parquet(parquet_path).select(pl.len()).collect().item()
@@ -324,7 +324,7 @@ def jsonl_to_parquet_conversion() -> bool:
             )
         print(f"  ✓ Lignes vérifiées : {n_parquet:,}")
         
-        # ── 5. Intégrité : schéma (noms de colonnes) ─────────────────────────
+        # -- 5. Intégrité : schéma (noms de colonnes) -------------------------
         cols_jsonl = set(pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema().names())
         cols_parquet = set(pl.scan_parquet(parquet_path).collect_schema().names())
         
@@ -338,7 +338,7 @@ def jsonl_to_parquet_conversion() -> bool:
             )
         print(f"  ✓ Schéma vérifié : {list(cols_parquet)}")
         
-        # ── 6. Vérification par échantillon ──────────────────────────────────
+        # -- 6. Vérification par échantillon ----------------------------------
         n_sample = min(N_SPOT_CHECK, n_parquet)
         if n_sample == 0:
             print(f"  ✓ Vérification ignorée (fichier vide)")
@@ -369,10 +369,10 @@ def jsonl_to_parquet_conversion() -> bool:
             del df_jsonl_sample, df_parquet_sample
             gc.collect()
         
-        # ── 7. Nettoyage par fichier ─────────────────────────────────────────
+        # -- 7. Nettoyage par fichier -----------------------------------------
         gc.collect()
 
-    # ── 8. Nettoyage final et résumé ────────────────────────────────────
+    # -- 8. Nettoyage final et résumé ------------------------------------
     gc.collect()
     print("\n✓ Conversion terminée. Tous les fichiers JSONL ont été convertis en Parquet.")
     print("  Les fichiers Parquet sont prêts pour l'analyse dans les cellules suivantes.")  
@@ -564,12 +564,11 @@ def sample_active_users_gpu(
     verbose: bool = True,
 ) -> int | None:
     """
-    Échantillonne les utilisateurs « actifs » (≥ min_reviews reviews) via GPU.
+    Échantillonne les utilisateurs « actifs » (>= min_reviews reviews) via GPU.
 
     Charge le parquet complet en VRAM (cuDF), compte les reviews par user,
-    sélectionne de manière déterministe num_users utilisateurs (ranking par
-    hash via deterministic_sample_users), filtre leurs reviews et écrit le
-    résultat en Parquet (GPU → disque, sans grosse copie en RAM).
+    en tire num_users au hasard via CuPy, filtre leurs reviews et écrit
+    le résultat en Parquet (GPU -> disque, sans grosse copie en RAM).
 
     Returns:
         Nombre de reviews écrites, ou None si RAPIDS n'est pas disponible.
@@ -579,7 +578,7 @@ def sample_active_users_gpu(
 
     if not RAPIDS_AVAILABLE:
         if verbose:
-            print("ℹ RAPIDS non disponible — sample_active_users_gpu ignoré.")
+            print("ℹ RAPIDS non disponible - sample_active_users_gpu ignoré.")
         return None
 
     flush_ram()
@@ -643,7 +642,7 @@ def sample_active_users_gpu(
 
     _flush_memory()
 
-    # # Sélection aléatoire sur GPU — seuls les 50k indices sont copiés vers le CPU
+    # # Sélection aléatoire sur GPU - seuls les 50k indices sont copiés vers le CPU
     # cp.random.seed(seed)
     # n_to_sample = min(num_users, len(active_users))
     # indices = cp.random.choice(len(active_users), size=n_to_sample, replace=False)
@@ -712,7 +711,7 @@ def sample_active_users_gpu(
 
     if verbose:
         elapsed = time.time() - start
-        print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,}")
+        print(f"  Temps: {elapsed:.2f}s - Reviews: {n_reviews:,}")
         _print_gpu_status("Final cleanup")
         if oom_retries_total > 0:
             print(f"  OOM retries: {oom_retries_total}")
@@ -731,7 +730,7 @@ def sample_temporal_gpu(
 ) -> int | None:
     """
     Échantillonnage temporel via GPU : filtre par années cibles, puis
-    ne garde que les utilisateurs ayant ≥ min_reviews dans la période,
+    ne garde que les utilisateurs ayant >= min_reviews dans la période,
     en tire num_users au hasard et écrit toutes leurs reviews.
 
     Returns:
@@ -741,7 +740,7 @@ def sample_temporal_gpu(
 
     if not RAPIDS_AVAILABLE:
         if verbose:
-            print("ℹ RAPIDS non disponible — sample_temporal_gpu ignoré.")
+            print("ℹ RAPIDS non disponible - sample_temporal_gpu ignoré.")
         return None
 
     if target_years is None:
@@ -803,7 +802,7 @@ def sample_temporal_gpu(
             ys.columns = ["review_count", "unique_users"]
             ys = ys.sort_index()
             if verbose:
-                print(f"\n── Répartition {target_years[0]}–{target_years[-1]} ──")
+                print(f"\n-- Répartition {target_years[0]}-{target_years[-1]} --")
                 print(ys.to_string())
                 print(f"\nTotal reviews : {ys['review_count'].sum():,}")
             del ys
@@ -916,7 +915,7 @@ def sample_temporal_gpu(
 
     if verbose:
         elapsed = time.time() - start
-        print(f"\n⚡ Temps: {elapsed:.2f}s — Reviews écrites: {n_reviews:,}")
+        print(f"\n⚡ Temps: {elapsed:.2f}s - Reviews écrites: {n_reviews:,}")
         if oom_retries_total > 0:
             print(f"  OOM retries: {oom_retries_total}")
         _print_gpu_status("Final")
@@ -1018,7 +1017,7 @@ def sample_active_users_cpu(
 
     if verbose:
         elapsed = time.time() - start
-        print(f"  Temps: {elapsed:.2f}s — Reviews: {n_reviews:,}")
+        print(f"  Temps: {elapsed:.2f}s - Reviews: {n_reviews:,}")
 
     return n_reviews
 
@@ -1199,13 +1198,13 @@ def sample_temporal_cpu(
 
     if verbose:
         elapsed = time.time() - start
-        print(f"\n⚡ Temps: {elapsed:.2f}s — Reviews écrites: {n_reviews:,}")
+        print(f"\n⚡ Temps: {elapsed:.2f}s - Reviews écrites: {n_reviews:,}")
 
     return n_reviews
 
 
 # =============================================================================
-#  POST-TRAITEMENT — Nettoyage
+#  POST-TRAITEMENT - Nettoyage
 # =============================================================================
 
 def clean_samples(
@@ -1243,9 +1242,9 @@ def clean_samples(
             continue
 
         if verbose:
-            print(f"\n{'═' * 60}")
+            print(f"\n{'=' * 60}")
             print(f"  Nettoyage : {path}")
-            print(f"{'═' * 60}")
+            print(f"{'=' * 60}")
 
         df = pd.read_parquet(path)
         n_original = len(df)
@@ -1295,7 +1294,7 @@ def clean_samples(
 
 
 # =============================================================================
-#  POST-TRAITEMENT — Filtrage itératif par seuils d'activité
+#  POST-TRAITEMENT - Filtrage itératif par seuils d'activité
 # =============================================================================
 
 def filter_samples(
@@ -1309,13 +1308,13 @@ def filter_samples(
     Filtrage itératif des fichiers *_cleaned.parquet.
 
     Élimine les utilisateurs et les livres ayant trop peu d'interactions.
-    En recommandation, un utilisateur avec 1–2 notes ne fournit aucun signal
+    En recommandation, un utilisateur avec 1-2 notes ne fournit aucun signal
     exploitable (cold start), et un livre noté par un seul lecteur ne peut
     pas être recommandé par similarité.
 
     Le filtrage boucle car supprimer des livres rares peut faire descendre
     des utilisateurs sous le seuil, et inversement. On itère jusqu'à ce que
-    plus aucune ligne ne soit supprimée (convergence en 2–4 itérations
+    plus aucune ligne ne soit supprimée (convergence en 2-4 itérations
     en pratique).
 
     .copy() est appelé après chaque filtre pour que le GC puisse libérer
@@ -1340,9 +1339,9 @@ def filter_samples(
             continue
 
         if verbose:
-            print(f"\n{'═' * 70}")
+            print(f"\n{'=' * 70}")
             print(f"  Filtrage : {path}")
-            print(f"{'═' * 70}")
+            print(f"{'=' * 70}")
 
         df = pd.read_parquet(path)
         n_before = len(df)
@@ -1360,8 +1359,8 @@ def filter_samples(
             print(f"  AVANT : {n_before:,} reviews, "
                   f"{u_before:,} utilisateurs, {b_before:,} livres")
             print(f"  Sparsité : {sparsity_before * 100:.4f}%")
-            print(f"  Seuils : utilisateur ≥ {min_ratings_user}, "
-                  f"livre ≥ {min_ratings_book}")
+            print(f"  Seuils : utilisateur >= {min_ratings_user}, "
+                  f"livre >= {min_ratings_book}")
 
         for iteration in range(1, max_iter + 1):
             n_start = len(df)
@@ -1381,7 +1380,7 @@ def filter_samples(
             total_dropped = n_start - len(df)
             if verbose:
                 print(f"  Itération {iteration:>2d} : "
-                      f"−{total_dropped:,} reviews → {len(df):,} restantes")
+                      f"−{total_dropped:,} reviews -> {len(df):,} restantes")
 
             if total_dropped == 0:
                 if verbose:
@@ -1425,7 +1424,7 @@ def filter_samples(
 
 
 # =============================================================================
-#  POST-TRAITEMENT — Split train/test stratifié + matrices CSR + sauvegarde
+#  POST-TRAITEMENT - Split train/test stratifié + matrices CSR + sauvegarde
 # =============================================================================
 
 def split_and_save(
@@ -1472,9 +1471,9 @@ def split_and_save(
             continue
 
         if verbose:
-            print(f"\n{'═' * 70}")
+            print(f"\n{'=' * 70}")
             print(f"  Split Train/Test : {path}")
-            print(f"{'═' * 70}")
+            print(f"{'=' * 70}")
 
         df = pd.read_parquet(path)
         if len(df) == 0:
@@ -1499,7 +1498,7 @@ def split_and_save(
             print(f"  Ratings : {n_total:,}  |  "
                   f"Utilisateurs : {n_users:,}  |  Livres : {n_items:,}")
 
-        # ── Split vectorisé ───────────────────────────────────────────
+        # -- Split vectorisé -------------------------------------------
         t0 = time.perf_counter()
 
         rng = np.random.default_rng(seed)
@@ -1541,7 +1540,7 @@ def split_and_save(
             print("  ✓ Chaque utilisateur présent dans train ET test")
         del users_train, users_test, violations
 
-        # ── Matrices CSR ──────────────────────────────────────────────
+        # -- Matrices CSR ----------------------------------------------
         # factorize() sur l'union train+test pour des indices cohérents
         # entre R_train et R_test (même utilisateur = même ligne).
         t1 = time.perf_counter()
@@ -1585,7 +1584,7 @@ def split_and_save(
             print(f"  R_train : {r_train.nnz:,} entrées  |  "
                   f"R_test : {r_test.nnz:,} entrées")
 
-        # ── Sauvegarde sur disque ─────────────────────────────────────
+        # -- Sauvegarde sur disque -------------------------------------
         sample_dir = Path(path).parent
         split_dir = sample_dir / SPLIT_SUBDIR
         split_dir.mkdir(parents=True, exist_ok=True)

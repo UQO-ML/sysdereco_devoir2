@@ -1,5 +1,5 @@
 """
-main.py — Orchestrateur complet du pipeline de préparation des données.
+main.py - Orchestrateur complet du pipeline de préparation des données.
 
 Exécute séquentiellement :
   1. Échantillonnage des utilisateurs actifs  (GPU si disponible, sinon CPU)
@@ -44,9 +44,9 @@ def main():
 
     use_gpu = RAPIDS_AVAILABLE
     backend = "GPU (RAPIDS)" if use_gpu else "CPU (PyArrow)"
-    print(f"Pipeline de préparation — backend : {backend}\n")
+    print(f"Pipeline de préparation - backend : {backend}\n")
 
-    # ── 0. Conversion Dataset ────────────────────────────────────────
+    # -- 0. Conversion Dataset ----------------------------------------
     result = False
     try:
         result = jsonl_to_parquet_conversion()
@@ -56,7 +56,7 @@ def main():
                
     if result:
 
-        # ── 1. Échantillonnage : utilisateurs actifs ─────────────────────
+        # -- 1. Échantillonnage : utilisateurs actifs ---------------------
 
         print("=" * 70)
         print("  ÉTAPE 1/5 : Échantillonnage des utilisateurs actifs")
@@ -72,7 +72,7 @@ def main():
         flush_gpu()
         gc.collect()
 
-        # ── 2. Échantillonnage : temporel ────────────────────────────────
+        # -- 2. Échantillonnage : temporel --------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 2/5 : Échantillonnage temporel")
@@ -92,7 +92,7 @@ def main():
         flush_gpu()
         gc.collect()
 
-        # ── 3. Nettoyage ─────────────────────────────────────────────────
+        # -- 3. Nettoyage -------------------------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 3/5 : Nettoyage des échantillons")
@@ -101,7 +101,7 @@ def main():
         clean_samples()
         flush_ram()
 
-        # ── 4. Filtrage ──────────────────────────────────────────────────
+        # -- 4. Filtrage --------------------------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 4/5 : Filtrage par seuils d'activité")
@@ -110,7 +110,7 @@ def main():
         filter_samples()
         flush_ram()
 
-        # ── 5. Split + sauvegarde ────────────────────────────────────────
+        # -- 5. Split + sauvegarde ----------------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 5/5 : Split train/test + matrices CSR + sauvegarde")
@@ -119,20 +119,20 @@ def main():
         split_and_save()
         flush_ram()
 
-        # ── Résumé ───────────────────────────────────────────────────────
+        # -- Résumé -------------------------------------------------------
 
         elapsed = time.time() - t_start
-        print(f"\n{'═' * 70}")
+        print(f"\n{'=' * 70}")
         print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
-        print(f"{'═' * 70}")
+        print(f"{'=' * 70}")
 
     else:
         print(f"  ⚠ Conversion Dataset jsonl_to_parquet_conversion ({e}),  : {result}")
 
     elapsed = time.time() - t_start
-    print(f"\n{'═' * 70}")
+    print(f"\n{'=' * 70}")
     print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
-    print(f"{'═' * 70}")
+    print(f"{'=' * 70}")
 
 
 if __name__ == "__main__":
