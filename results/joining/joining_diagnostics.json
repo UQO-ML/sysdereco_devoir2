@@ -614,13 +614,28 @@
       ],
       "metadata_text_kept": [
         "title",
+        "features",
         "description",
-        "categories"
+        "categories",
+        "author",
+        "details"
       ],
       "metadata_struct_kept": [
         "average_rating",
         "rating_number",
         "price"
+      ],
+      "metadata_scalar": [
+        "title"
+      ],
+      "metadata_list": [
+        "features",
+        "description",
+        "categories"
+      ],
+      "metadata_nested": [
+        "author",
+        "details"
       ],
       "ignored_interactions_cols": [],
       "ignored_metadata_cols": []
@@ -634,13 +649,28 @@
       ],
       "metadata_text_kept": [
         "title",
+        "features",
         "description",
-        "categories"
+        "categories",
+        "author",
+        "details"
       ],
       "metadata_struct_kept": [
         "average_rating",
         "rating_number",
         "price"
+      ],
+      "metadata_scalar": [
+        "title"
+      ],
+      "metadata_list": [
+        "features",
+        "description",
+        "categories"
+      ],
+      "metadata_nested": [
+        "author",
+        "details"
       ],
       "ignored_interactions_cols": [],
       "ignored_metadata_cols": []
@@ -654,13 +684,28 @@
       ],
       "metadata_text_kept": [
         "title",
+        "features",
         "description",
-        "categories"
+        "categories",
+        "author",
+        "details"
       ],
       "metadata_struct_kept": [
         "average_rating",
         "rating_number",
         "price"
+      ],
+      "metadata_scalar": [
+        "title"
+      ],
+      "metadata_list": [
+        "features",
+        "description",
+        "categories"
+      ],
+      "metadata_nested": [
+        "author",
+        "details"
       ],
       "ignored_interactions_cols": [],
       "ignored_metadata_cols": []
@@ -674,13 +719,28 @@
       ],
       "metadata_text_kept": [
         "title",
+        "features",
         "description",
-        "categories"
+        "categories",
+        "author",
+        "details"
       ],
       "metadata_struct_kept": [
         "average_rating",
         "rating_number",
         "price"
+      ],
+      "metadata_scalar": [
+        "title"
+      ],
+      "metadata_list": [
+        "features",
+        "description",
+        "categories"
+      ],
+      "metadata_nested": [
+        "author",
+        "details"
       ],
       "ignored_interactions_cols": [],
       "ignored_metadata_cols": []
@@ -701,16 +761,34 @@
         "strategy": "remplacer NaN par chaîne vide"
       },
       {
+        "column": "features",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
         "column": "description",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
       },
       {
         "column": "categories",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
+        "column": "author",
+        "missing_count": 1580830,
+        "missing_pct": 35.5388,
+        "strategy": "aplatir struct (extraire champ clé en string)"
+      },
+      {
+        "column": "details",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "aplatir struct (extraire champ clé en string)"
       },
       {
         "column": "average_rating",
@@ -745,16 +823,34 @@
         "strategy": "remplacer NaN par chaîne vide"
       },
       {
+        "column": "features",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
         "column": "description",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
       },
       {
         "column": "categories",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
+        "column": "author",
+        "missing_count": 1580830,
+        "missing_pct": 35.5388,
+        "strategy": "aplatir struct (extraire champ clé en string)"
+      },
+      {
+        "column": "details",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "aplatir struct (extraire champ clé en string)"
       },
       {
         "column": "average_rating",
@@ -789,16 +885,34 @@
         "strategy": "remplacer NaN par chaîne vide"
       },
       {
+        "column": "features",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
         "column": "description",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
       },
       {
         "column": "categories",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
+        "column": "author",
+        "missing_count": 1580830,
+        "missing_pct": 35.5388,
+        "strategy": "aplatir struct (extraire champ clé en string)"
+      },
+      {
+        "column": "details",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "aplatir struct (extraire champ clé en string)"
       },
       {
         "column": "average_rating",
@@ -833,16 +947,34 @@
         "strategy": "remplacer NaN par chaîne vide"
       },
       {
+        "column": "features",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
         "column": "description",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
       },
       {
         "column": "categories",
         "missing_count": 0,
         "missing_pct": 0.0,
-        "strategy": "remplacer NaN par chaîne vide"
+        "strategy": "joindre éléments en string, vide si absent"
+      },
+      {
+        "column": "author",
+        "missing_count": 1580830,
+        "missing_pct": 35.5388,
+        "strategy": "aplatir struct (extraire champ clé en string)"
+      },
+      {
+        "column": "details",
+        "missing_count": 0,
+        "missing_pct": 0.0,
+        "strategy": "aplatir struct (extraire champ clé en string)"
       },
       {
         "column": "average_rating",
@@ -868,22 +1000,22 @@
     "active_pre_split": {
       "path": "data/joining/active_pre_split_joined.parquet",
       "n_rows": 508878,
-      "n_cols": 10
+      "n_cols": 14
     },
     "active_post_split_union": {
       "path": "data/joining/active_post_split_union_joined.parquet",
       "n_rows": 497931,
-      "n_cols": 10
+      "n_cols": 14
     },
     "temporal_pre_split": {
       "path": "data/joining/temporal_pre_split_joined.parquet",
       "n_rows": 289949,
-      "n_cols": 10
+      "n_cols": 14
     },
     "temporal_post_split_union": {
       "path": "data/joining/temporal_post_split_union_joined.parquet",
       "n_rows": 285521,
-      "n_cols": 10
+      "n_cols": 14
     }
   },
   "p1_reuse_note": {

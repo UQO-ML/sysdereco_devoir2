@@ -243,7 +243,11 @@ def _print_gpu_status(label: str = "") -> None:
             pynvml.nvmlShutdown()
         except Exception:
             pass
-gc
+
+
+
+
+
 
 def _print_ram_status(label: str = "") -> None:
     """Affiche la mémoire RAM consommée par le processus courant (optionnel, via psutil)."""
@@ -253,7 +257,6 @@ def _print_ram_status(label: str = "") -> None:
         print(f"  [{label}] RAM process: {mem.rss / 1e9:.2f} GB")
     except ImportError:
         pass
-
 
 
 

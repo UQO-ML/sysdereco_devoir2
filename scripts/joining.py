@@ -36,16 +36,17 @@ class SourceInfo:
 
 
 
-
-
 INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp"]
-METADATA_TEXT_COLS = ["title", "description", "categories"]
-METADATA_STRUCT_COLS = ["average_rating", "rating_number", "price"]  # optionnels
+
+METADATA_SCALAR_COLS = ["title"]
+METADATA_LIST_COLS = ["features", "description", "categories"]
+METADATA_STRUCT_COLS = ["average_rating", "rating_number", "price"]
+METADATA_NESTED_COLS = ["author", "details"]
+
+METADATA_TEXT_COLS = METADATA_SCALAR_COLS + METADATA_LIST_COLS + METADATA_NESTED_COLS
 
 REQUIRED_INTERACTION_COLS = {"user_id", "parent_asin", "rating", "timestamp"}
 REQUIRED_METADATA_COLS = {"parent_asin"}
-
-
 
 
 
@@ -278,18 +279,28 @@ def collect_source_documentation(
 
 
 def load_target_df(
-    cfg: Dict[str, Any], 
-    columns: List[str] | None = None
+    cfg: Dict[str, Any],
+    columns: List[str] | None = None,
+    verbose: bool = True,
 ) -> pd.DataFrame:
     kind = cfg["kind"]
     paths = cfg["paths"]
 
+    if verbose:
+        print(
+            f"\nload_target_df \n"
+            f"kind: {kind}, paths: {paths} \n"
+            f"columns: {columns} \n"
+        )
     if kind == "single":
-        return pd.read_parquet(paths[0], columns=columns, engine="pyarrow")
+        return pd.read_parquet(paths[0], columns=columns, 
+            )
 
     if kind == "union":
-        train_df = pd.read_parquet(paths[0], columns=columns, engine='pyarrow')
-        test_df = pd.read_parquet(paths[1], columns=columns, engine='pyarrow')
+        train_df = pd.read_parquet(paths[0], columns=columns, 
+            )
+        test_df = pd.read_parquet(paths[1], columns=columns, 
+            )
         combined = pd.concat([train_df, test_df], ignore_index=True)
         del train_df, test_df
         return combined
@@ -331,8 +342,12 @@ def missingness_report(df: pd.DataFrame, cols: List[str]) -> List[Dict[str, Any]
 
 
 
-def attach_missingness_strategy(report_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    text_cols = set(METADATA_TEXT_COLS)
+def attach_missingness_strategy(
+    report_rows: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    scalar_cols = set(METADATA_SCALAR_COLS)
+    list_cols = set(METADATA_LIST_COLS)
+    nested_cols = set(METADATA_NESTED_COLS)
     numeric_cols = set(METADATA_STRUCT_COLS)
     key_cols = {"parent_asin", "user_id", "timestamp"}
 
@@ -342,14 +357,17 @@ def attach_missingness_strategy(report_rows: List[Dict[str, Any]]) -> List[Dict[
             r["strategy"] = "colonne absente"
         elif col in key_cols:
             r["strategy"] = "supprimer lignes incomplètes (clé obligatoire)"
-        elif col in text_cols:
+        elif col in scalar_cols:
             r["strategy"] = "remplacer NaN par chaîne vide"
+        elif col in list_cols:
+            r["strategy"] = "joindre éléments en string, vide si absent"
+        elif col in nested_cols:
+            r["strategy"] = "aplatir struct (extraire champ clé en string)"
         elif col in numeric_cols:
             r["strategy"] = "imputation médiane (ou exclusion si trop manquant)"
         else:
             r["strategy"] = "au cas par cas / hors périmètre"
     return report_rows
-
 
 
 
@@ -472,15 +490,22 @@ def select_exploitable_columns(
 ) -> Dict[str, Any]:
 
     inter_available = [c for c in INTERACTION_MIN_COLS if c in inter_df.columns]
-    meta_text_available = [c for c in METADATA_TEXT_COLS if c in meta_df.columns]
-    meta_struct_available = [c for c in METADATA_STRUCT_COLS if c in meta_df.columns]
+    meta_scalar = [c for c in METADATA_SCALAR_COLS if c in meta_df.columns]
+    meta_list = [c for c in METADATA_LIST_COLS if c in meta_df.columns]
+    meta_nested = [c for c in METADATA_NESTED_COLS if c in meta_df.columns]
+    meta_struct = [c for c in METADATA_STRUCT_COLS if c in meta_df.columns]
+
+    all_meta_kept = meta_scalar + meta_list + meta_nested + meta_struct
 
     return {
         "interactions_kept": inter_available,
-        "metadata_text_kept": meta_text_available,
-        "metadata_struct_kept": meta_struct_available,
+        "metadata_text_kept": meta_scalar + meta_list + meta_nested,
+        "metadata_struct_kept": meta_struct,
+        "metadata_scalar": meta_scalar,
+        "metadata_list": meta_list,
+        "metadata_nested": meta_nested,
         "ignored_interactions_cols": [c for c in inter_df.columns if c not in inter_available],
-        "ignored_metadata_cols": [c for c in meta_df.columns if c not in (meta_text_available + meta_struct_available + ["parent_asin"])],
+        "ignored_metadata_cols": [c for c in meta_df.columns if c not in all_meta_kept + ["parent_asin"]],
     }
 
 
@@ -514,42 +539,69 @@ def compute_join_quality_metrics(inter_df: pd.DataFrame, meta_df: pd.DataFrame =
         "interactions_non_jointes_si_inner_join": n_inter_total - n_inter_joined,
         "items_sans_meta": n_items_total - n_items_with_meta,
     }
-# def compute_join_quality_metrics(
-#     inter_df: pd.DataFrame, 
-#     meta_df: pd.DataFrame,
-# ) -> Dict[str, Any]:
 
-    # # Harmonisation clé
-    # inter_key = inter_df["parent_asin"].astype("string")
-    # meta_key = meta_df["parent_asin"].astype("string")
 
-    # inter_non_null = inter_key.dropna()
-    # meta_non_null = meta_key.dropna()
 
-    # inter_items = set(inter_non_null.unique().tolist())
-    # meta_items = set(meta_non_null.unique().tolist())
-    # common_items = inter_items.intersection(meta_items)
 
-    # # Couverture interactions
-    # matched_mask = inter_key.isin(meta_items)
-    # n_inter_total = len(inter_df)
-    # n_inter_joined = int(matched_mask.sum())
 
-    # # Couverture items
-    # n_items_total = len(inter_items)
-    # n_items_with_meta = len(common_items)
 
-    # return {
-    #     "nb_parent_asin_communs": n_items_with_meta,
-    #     "nb_interactions_totales": n_inter_total,
-    #     "nb_interactions_jointes": n_inter_joined,
-    #     "ratio_interactions_jointes": (n_inter_joined / n_inter_total) if n_inter_total else 0.0,
-    #     "nb_items_totaux": n_items_total,
-    #     "nb_items_avec_meta": n_items_with_meta,
-    #     "ratio_items_avec_meta": (n_items_with_meta / n_items_total) if n_items_total else 0.0,
-    #     "interactions_non_jointes_si_inner_join": n_inter_total - n_inter_joined,
-    #     "items_sans_meta": n_items_total - n_items_with_meta,
-    # }
+def _flatten_struct_col(series: pd.Series, key: str) -> pd.Series:
+    """Extract a single key from a struct/dict column, return as string."""
+    def _extract(val):
+        if isinstance(val, dict):
+            return str(val.get(key, ""))
+        return ""
+    return series.apply(_extract)
+
+
+
+
+
+
+def _join_list_col(series: pd.Series, sep: str = " | ") -> pd.Series:
+    """Join list/array elements into a single string."""
+    def _join(val):
+        if isinstance(val, (list, tuple)):
+            return sep.join(str(x) for x in val if x)
+        try:
+            import numpy as np
+            if isinstance(val, np.ndarray):
+                return sep.join(str(x) for x in val if x)
+        except ImportError:
+            pass
+        return ""
+    return series.apply(_join)
+
+
+
+
+
+def normalize_metadata_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalize metadata columns in-place for parquet-safe serialization.
+
+    - Scalar text cols (title): fillna("")
+    - List cols (description, categories, features): join elements → string
+    - Struct cols (author → author_name, details → details_publisher): extract key → string
+    """
+    for c in METADATA_SCALAR_COLS:
+        if c in df.columns:
+            df[c] = df[c].fillna("")
+
+    for c in METADATA_LIST_COLS:
+        if c in df.columns:
+            df[c] = _join_list_col(df[c])
+
+    if "author" in df.columns:
+        df["author_name"] = _flatten_struct_col(df["author"], "name")
+        df.drop(columns=["author"], inplace=True)
+
+    if "details" in df.columns:
+        df["details_publisher"] = _flatten_struct_col(df["details"], "Publisher")
+        df["details_language"] = _flatten_struct_col(df["details"], "Language")
+        df.drop(columns=["details"], inplace=True)
+
+    return df
 
 
 
@@ -559,22 +611,36 @@ def build_joined_dataset(
     inter_df: pd.DataFrame,
     meta_df: pd.DataFrame,
     meta_keep_cols: List[str],
+    verbose: bool = True,
 ) -> pd.DataFrame:
 
+    if verbose:
+        print("\nbuild_joined_dataset")
     inter_df = inter_df.copy()
     inter_df["parent_asin"] = inter_df["parent_asin"].astype("string")
+    if verbose:
+        print(f"\nlen(inter_df.columns): {len(inter_df.columns)}\n"
+            f"inter_df.columns: {inter_df.columns}")
+
 
     keep = ["parent_asin"] + [c for c in meta_keep_cols if c in meta_df.columns]
+    if verbose:
+        print(f"\nlen(keep): {len(keep)}\n")
+        print(f"keep: {keep}")
+    
     meta_slim = meta_df[keep].drop_duplicates(subset=["parent_asin"], keep="first")
-
+    if verbose:
+        print(
+            f"\nlen(meta_slim.columns): {len(meta_slim.columns)}\n"
+            f"meta_slim.columns: {meta_slim.columns}\n"
+        )
+    
     joined = inter_df.merge(meta_slim, on="parent_asin", how="left")
     del inter_df, meta_slim
 
     joined = joined[joined["parent_asin"].notna()].copy()
 
-    for c in METADATA_TEXT_COLS:
-        if c in joined.columns:
-            joined[c] = joined[c].fillna("")
+    joined = normalize_metadata_columns(joined)
 
     return joined
 
@@ -582,15 +648,15 @@ def build_joined_dataset(
 
 
 
-def save_source_diagnostics(
+def save_diagnostics(
     result: Dict[str, Any], 
     out_dir: str = "results/joining"
 ) -> Dict[str, str]:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    json_path = out / "source_diagnostics.json"
-    md_path = out / "source_diagnostics.md"
+    json_path = out / "joining_diagnostics.json"
+    md_path = out / "joining_diagnostics.md"
 
     # JSON complet (machine-readable)
     with open(json_path, "w", encoding="utf-8") as f:
@@ -628,6 +694,7 @@ def save_source_diagnostics(
         lines.append(f"- cols: `{s.get('n_cols')}`")
         lines.append(f"- size_bytes: `{s.get('size_bytes')}`")
         lines.append(f"- paths: `{s.get('paths')}`")
+        lines.append(f"- columns names: '{s.get('columns')}")
         lines.append("")
 
     # ---------------------------------------------------------------
@@ -745,14 +812,33 @@ def save_source_diagnostics(
 
 
 def save_joined_dataset(
-    df: pd.DataFrame, 
-    name: str, 
-    out_dir: str = "data/joining"
+    df: pd.DataFrame,
+    name: str,
+    out_dir: str = "data/joining",
+    verbose: bool = True,
 ) -> str:
+    if verbose:
+        print(
+            "\nsave_joined_dataset\n"
+            f"out_dir: {out_dir}\n",
+            f"len(df.columns): {len(df.columns)}\n"
+            f"df.columns: {df.columns}\n"
+            # f"df: {df}\n"
+        )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{name}_joined.parquet"
-    df.to_parquet(path, index=False, engine='pyarrow')
+    if verbose:
+        print(f"\npath: {path}")
+
+    for col in df.columns:
+        types = df[col].dropna().apply(type).value_counts()
+        if len(types) > 1 and verbose:
+            print(f"\nMIXED TYPES in {col}:")
+            print(f"\n{types}")
+
+    df.to_parquet(path)
+
     return str(path)
 
 
@@ -763,7 +849,7 @@ def run_all(
     verbose: bool = True,
     include_optional_raw: bool = False,
     export_artifacts: bool = True,
-    materialize_joined: bool = False,
+    materialize_joined: bool = True,
 ) -> Dict[str, Any]:
     """
     Base pipeline (Tasks 1-2 ready):
@@ -789,8 +875,10 @@ def run_all(
 
     # metadata
     meta_cfg = manifest["metadata"]
-    meta_cols = ["parent_asin", "title", "description", "categories", "average_rating", "rating_number", "price"]
-    meta_df = load_target_df(meta_cfg, meta_cols)
+    meta_cols = ["parent_asin"] + METADATA_TEXT_COLS + METADATA_STRUCT_COLS
+    if verbose:
+        print(f"\nmeta_cols: {meta_cols}")
+    meta_df = load_target_df(meta_cfg, meta_cols, verbose=verbose)
     meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
     meta_key_set = set(meta_df["parent_asin"].dropna().unique().tolist())
 
@@ -802,9 +890,9 @@ def run_all(
             "ok": False,
             "warnings": ["Chemin(s) manquant(s), vérification Task 3 ignorée"],
         }
-
-    inter_cols = ["user_id", "parent_asin", "rating", "timestamp"]
-
+    inter_cols = INTERACTION_MIN_COLS   
+    if verbose:
+        print(f"inter_cols: {inter_cols}")
     for name, cfg in manifest.items():
         if cfg["role"] != "interactions":
             continue
@@ -817,7 +905,7 @@ def run_all(
             }
             continue
 
-        inter_df = load_target_df(cfg, columns=inter_cols)
+        inter_df = load_target_df(cfg, columns=inter_cols, verbose=verbose)
 
         schema_checks[name] = run_schema_key_checks_for_target(name, cfg, inter_df)
 
@@ -837,10 +925,18 @@ def run_all(
 
         # 4) final joined dataset
         meta_keep = ex["metadata_text_kept"] + ex["metadata_struct_kept"]
-        joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep)
+        if verbose:
+            print(f"meta_keep: {meta_keep}")
+        joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep, verbose=verbose)
+        if verbose:
+            print(
+                # f"\njoined_df: {joined_df}"
+                f"\nlen(joined_df.columns).: {len(joined_df.columns)}"
+                f"\njoined_df.columns: {joined_df.columns}"
+            )
         out_path = None
         if materialize_joined:
-            out_path = save_joined_dataset(joined_df, name=name, out_dir="data/joining")
+            out_path = save_joined_dataset(joined_df, name=name, out_dir="data/joining", verbose=verbose)
         final_datasets[name] = {
             "path": out_path,
             "n_rows": len(joined_df),
@@ -863,7 +959,7 @@ def run_all(
     result["p1_reuse_note"] = build_p1_reuse_note(manifest, result["sources"])
 
     if export_artifacts:
-        result["artifacts"] = save_source_diagnostics(result, out_dir="results/joining")
+        result["artifacts"] = save_diagnostics(result, out_dir="results/joining")
 
     return result
 
@@ -895,14 +991,19 @@ def _fmt_num(x: Any) -> str:
 
 
 
-def main() -> None:
-    t_start = time.time()
-    result = run_all(
-        verbose=False,
-        include_optional_raw=False,   # officiel P2
-        export_artifacts=True,
-        materialize_joined=True
-    )
+def cli_print_results(
+    result: Dict[str, Any] | None = None,
+    t_start: float | None = None,
+    verbose: bool = True,
+) -> None:
+
+    if result is None:
+        result = run_all()
+    if t_start is None:
+        t_start = time.time()
+
+    if not verbose:
+        return
 
     print("\n" + "=" * 86)
     print("TÂCHE 0 (P2) — PRÉPARATION DES DONNÉES / CADRE EXPÉRIMENTAL")
@@ -1013,10 +1114,37 @@ def main() -> None:
     print("\n[Artifacts]")
     print(f"- JSON: {artifacts.get('json', 'N/A')}")
     print(f"- MD:   {artifacts.get('md', 'N/A')}")
-    elapsed = time.time() - t_start
+    if t_start:
+        elapsed = time.time() - t_start
     print("\n" + "=" * 86)
     print(f"FIN — Résumé prêt pour notebook/rapport  ||  Pipeline complet en {elapsed:.1f}s")
     print("=" * 86)
+
+
+
+
+
+
+def cli_print_md_results(verbose: bool = True) -> None:
+    if verbose:
+        print(Path("results/joining/joining_diagnostics.md").read_text(encoding="utf-8"))
+
+
+
+
+
+
+def main() -> None:
+    t_start = time.time()
+    result = run_all(
+        verbose=True,
+        include_optional_raw=False,   
+        export_artifacts=True,
+        materialize_joined=True
+    )
+
+    if result:
+        cli_print_results(result, t_start)
 
 
 

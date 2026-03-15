@@ -12,6 +12,7 @@ Usage : python main.py
 """
 
 import gc
+from ntpath import exists
 import os
 import time
 import sys
@@ -25,6 +26,7 @@ from scripts.precursor import (
     SAMPLE_TEMPORAL_DIR,
     SAMPLE_GLOB_FILTERED,
     TARGET_YEARS,
+    RAW_META_PATH,
     # Dataset preparation (JSONL  to Parquet)
     jsonl_to_parquet_conversion,
     resolve_glob,
@@ -43,6 +45,14 @@ from scripts.precursor import (
     flush_gpu,
 )
 
+from scripts.joining import(
+    cli_print_md_results,
+    cli_print_results,
+    run_all
+    )
+
+import scripts.truc as truc
+
 
 def _final_files_checker() -> bool:
 
@@ -50,6 +60,7 @@ def _final_files_checker() -> bool:
     filtered_data_paths = resolve_glob(SAMPLE_GLOB_FILTERED)
     active_splits_dir_path = f"{SAMPLE_ACTIVE_DIR}/splits/"
     temporal_splits_dir_path = f"{SAMPLE_TEMPORAL_DIR}/splits/"
+    
 
     if len(filtered_data_paths) == 0:
         result = False
@@ -65,7 +76,30 @@ def _final_files_checker() -> bool:
     if len(temporal_splits_dir) == 0:
         result = False
 
+    if not os.path.isfile(RAW_META_PATH) or os.path.getsize(RAW_META_PATH) < 1024:
+        result = False
+    
+
     return result
+
+
+
+def _joining_files_checker() -> bool:
+        
+    print(r"Reutilisation des ensembles P1")
+
+    result = True
+    joined_data_paths = resolve_glob("data/joining/*_joined.parquet")
+
+    if len(joined_data_paths) == 0:
+        result = False
+    for path in joined_data_paths:
+        print(f"Jointure chemin : {path}")
+        if os.path.getsize(path) < 1024:
+            result = False
+
+    return result
+
 
 
 def precursor():
@@ -163,14 +197,36 @@ def precursor():
     print(f"  Pipeline complet en {elapsed:.1f}s")
     print(f"{'=' * 70}")
 
+
+
+
+
 def main():
+
+    t_start = time.time()
+
+    # truc.stuff()
+
     final_files_checker = False
     final_files_checker = _final_files_checker()
-    print(f"final_files_checker : {final_files_checker}")
+    print(f"\n final_files_checker : {final_files_checker}\n")
+
     if final_files_checker:
-        print("Echantillon present")
+        print("\n Echantillon present \n")
     else:
         precursor()
+
+    if _joining_files_checker():
+        cli_print_md_results()    
+    else:
+        print()
+        result = run_all(
+        verbose=True,
+        include_optional_raw=False,   
+        export_artifacts=True,
+        materialize_joined=True)
+        cli_print_results(result, t_start)
+        
 
 
 if __name__ == "__main__":
