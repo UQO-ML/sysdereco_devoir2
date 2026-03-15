@@ -215,4 +215,3 @@ data/processed/sample*
 *.jsonl
 amazon-reviews*
 *.tar.gz
-*truc*

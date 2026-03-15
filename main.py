@@ -52,7 +52,7 @@ from scripts.joining import(
     run_all
     )
 
-import scripts.truc as truc
+# import scripts.truc as truc
 
 
 def _final_files_checker() -> bool:
