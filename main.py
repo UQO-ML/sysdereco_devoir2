@@ -12,14 +12,10 @@ Usage : python main.py
 """
 
 import gc
-from ntpath import exists
 import os
 import time
 import sys
 
-from queue import Empty
-
-from scripts import joining
 from scripts.precursor import (
     RAPIDS_AVAILABLE,
     RAW_BOOKS_PATH,
