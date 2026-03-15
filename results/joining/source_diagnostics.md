@@ -1,6 +1,6 @@
 # Diagnostic Task 0 — Préparation des données (P2)
 
-- generated_at: 2026-03-15T02:00:46
+- generated_at: 2026-03-15T03:56:01
 
 ## A. Réutilisation du sous-ensemble de travail
 - note: `P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).`
@@ -70,6 +70,14 @@
 
 ## C. Vérifications schéma et clés (`parent_asin`)
 
+### metadata
+- ok: `True`
+- missing_required: `[]`
+- missing_parent_asin_count: `0`
+- missing_parent_asin_pct: `0.0`
+- coercion_warning: `None`
+- warnings: `[]`
+
 ### active_pre_split
 - ok: `True`
 - missing_required: `[]`
@@ -95,14 +103,6 @@
 - warnings: `[]`
 
 ### temporal_post_split_union
-- ok: `True`
-- missing_required: `[]`
-- missing_parent_asin_count: `0`
-- missing_parent_asin_pct: `0.0`
-- coercion_warning: `None`
-- warnings: `[]`
-
-### metadata
 - ok: `True`
 - missing_required: `[]`
 - missing_parent_asin_count: `0`
@@ -154,29 +154,29 @@
 - interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp']`
 - metadata_text_kept: `['title', 'description', 'categories']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'text', 'images', 'asin', 'helpful_vote', 'verified_purchase']`
-- ignored_metadata_cols: `['main_category', 'subtitle', 'author', 'features', 'images', 'videos', 'store', 'details', 'bought_together']`
+- ignored_interactions_cols: `[]`
+- ignored_metadata_cols: `[]`
 
 ### active_post_split_union
 - interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp']`
 - metadata_text_kept: `['title', 'description', 'categories']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'text', 'images', 'asin', 'helpful_vote', 'verified_purchase']`
-- ignored_metadata_cols: `['main_category', 'subtitle', 'author', 'features', 'images', 'videos', 'store', 'details', 'bought_together']`
+- ignored_interactions_cols: `[]`
+- ignored_metadata_cols: `[]`
 
 ### temporal_pre_split
 - interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp']`
 - metadata_text_kept: `['title', 'description', 'categories']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'text', 'asin', 'helpful_vote', 'verified_purchase']`
-- ignored_metadata_cols: `['main_category', 'subtitle', 'author', 'features', 'images', 'videos', 'store', 'details', 'bought_together']`
+- ignored_interactions_cols: `[]`
+- ignored_metadata_cols: `[]`
 
 ### temporal_post_split_union
 - interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp']`
 - metadata_text_kept: `['title', 'description', 'categories']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'text', 'asin', 'helpful_vote', 'verified_purchase']`
-- ignored_metadata_cols: `['main_category', 'subtitle', 'author', 'features', 'images', 'videos', 'store', 'details', 'bought_together']`
+- ignored_interactions_cols: `[]`
+- ignored_metadata_cols: `[]`
 
 ## F. Valeurs manquantes et stratégie
 
@@ -221,19 +221,19 @@
 ### active_pre_split
 - path: `data/joining/active_pre_split_joined.parquet`
 - rows: `508878`
-- cols: `16`
+- cols: `10`
 
 ### active_post_split_union
 - path: `data/joining/active_post_split_union_joined.parquet`
 - rows: `497931`
-- cols: `16`
+- cols: `10`
 
 ### temporal_pre_split
 - path: `data/joining/temporal_pre_split_joined.parquet`
 - rows: `289949`
-- cols: `15`
+- cols: `10`
 
 ### temporal_post_split_union
 - path: `data/joining/temporal_post_split_union_joined.parquet`
 - rows: `285521`
-- cols: `15`
+- cols: `10`

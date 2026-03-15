@@ -410,6 +410,33 @@
     }
   ],
   "schema_checks": {
+    "metadata": {
+      "target": "metadata",
+      "stage": "raw",
+      "variant": "meta_books",
+      "role": "metadata",
+      "ok": true,
+      "required_columns": {
+        "required": [
+          "parent_asin"
+        ],
+        "missing_required": [],
+        "ok": true
+      },
+      "coercion": {
+        "coercion_applied": true,
+        "warning": null,
+        "changed_non_null_values": 0,
+        "non_null_before": 4448181,
+        "non_null_after": 4448181
+      },
+      "missing_keys": {
+        "missing_parent_asin_count": 0,
+        "missing_parent_asin_pct": 0.0,
+        "n_rows": 4448181
+      },
+      "warnings": []
+    },
     "active_pre_split": {
       "target": "active_pre_split",
       "stage": "pre_split",
@@ -419,6 +446,7 @@
       "required_columns": {
         "required": [
           "parent_asin",
+          "rating",
           "timestamp",
           "user_id"
         ],
@@ -448,6 +476,7 @@
       "required_columns": {
         "required": [
           "parent_asin",
+          "rating",
           "timestamp",
           "user_id"
         ],
@@ -477,6 +506,7 @@
       "required_columns": {
         "required": [
           "parent_asin",
+          "rating",
           "timestamp",
           "user_id"
         ],
@@ -506,6 +536,7 @@
       "required_columns": {
         "required": [
           "parent_asin",
+          "rating",
           "timestamp",
           "user_id"
         ],
@@ -523,33 +554,6 @@
         "missing_parent_asin_count": 0,
         "missing_parent_asin_pct": 0.0,
         "n_rows": 285521
-      },
-      "warnings": []
-    },
-    "metadata": {
-      "target": "metadata",
-      "stage": "raw",
-      "variant": "meta_books",
-      "role": "metadata",
-      "ok": true,
-      "required_columns": {
-        "required": [
-          "parent_asin"
-        ],
-        "missing_required": [],
-        "ok": true
-      },
-      "coercion": {
-        "coercion_applied": true,
-        "warning": null,
-        "changed_non_null_values": 0,
-        "non_null_before": 4448181,
-        "non_null_after": 4448181
-      },
-      "missing_keys": {
-        "missing_parent_asin_count": 0,
-        "missing_parent_asin_pct": 0.0,
-        "n_rows": 4448181
       },
       "warnings": []
     }
@@ -618,25 +622,8 @@
         "rating_number",
         "price"
       ],
-      "ignored_interactions_cols": [
-        "title",
-        "text",
-        "images",
-        "asin",
-        "helpful_vote",
-        "verified_purchase"
-      ],
-      "ignored_metadata_cols": [
-        "main_category",
-        "subtitle",
-        "author",
-        "features",
-        "images",
-        "videos",
-        "store",
-        "details",
-        "bought_together"
-      ]
+      "ignored_interactions_cols": [],
+      "ignored_metadata_cols": []
     },
     "active_post_split_union": {
       "interactions_kept": [
@@ -655,25 +642,8 @@
         "rating_number",
         "price"
       ],
-      "ignored_interactions_cols": [
-        "title",
-        "text",
-        "images",
-        "asin",
-        "helpful_vote",
-        "verified_purchase"
-      ],
-      "ignored_metadata_cols": [
-        "main_category",
-        "subtitle",
-        "author",
-        "features",
-        "images",
-        "videos",
-        "store",
-        "details",
-        "bought_together"
-      ]
+      "ignored_interactions_cols": [],
+      "ignored_metadata_cols": []
     },
     "temporal_pre_split": {
       "interactions_kept": [
@@ -692,24 +662,8 @@
         "rating_number",
         "price"
       ],
-      "ignored_interactions_cols": [
-        "title",
-        "text",
-        "asin",
-        "helpful_vote",
-        "verified_purchase"
-      ],
-      "ignored_metadata_cols": [
-        "main_category",
-        "subtitle",
-        "author",
-        "features",
-        "images",
-        "videos",
-        "store",
-        "details",
-        "bought_together"
-      ]
+      "ignored_interactions_cols": [],
+      "ignored_metadata_cols": []
     },
     "temporal_post_split_union": {
       "interactions_kept": [
@@ -728,24 +682,8 @@
         "rating_number",
         "price"
       ],
-      "ignored_interactions_cols": [
-        "title",
-        "text",
-        "asin",
-        "helpful_vote",
-        "verified_purchase"
-      ],
-      "ignored_metadata_cols": [
-        "main_category",
-        "subtitle",
-        "author",
-        "features",
-        "images",
-        "videos",
-        "store",
-        "details",
-        "bought_together"
-      ]
+      "ignored_interactions_cols": [],
+      "ignored_metadata_cols": []
     }
   },
   "missingness": {
@@ -930,22 +868,22 @@
     "active_pre_split": {
       "path": "data/joining/active_pre_split_joined.parquet",
       "n_rows": 508878,
-      "n_cols": 16
+      "n_cols": 10
     },
     "active_post_split_union": {
       "path": "data/joining/active_post_split_union_joined.parquet",
       "n_rows": 497931,
-      "n_cols": 16
+      "n_cols": 10
     },
     "temporal_pre_split": {
       "path": "data/joining/temporal_pre_split_joined.parquet",
       "n_rows": 289949,
-      "n_cols": 15
+      "n_cols": 10
     },
     "temporal_post_split_union": {
       "path": "data/joining/temporal_post_split_union_joined.parquet",
       "n_rows": 285521,
-      "n_cols": 15
+      "n_cols": 10
     }
   },
   "p1_reuse_note": {

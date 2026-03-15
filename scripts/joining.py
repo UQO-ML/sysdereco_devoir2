@@ -4,6 +4,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List
 from datetime import datetime
+import gc
 import json
 import os
 import time
@@ -41,7 +42,7 @@ INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp"]
 METADATA_TEXT_COLS = ["title", "description", "categories"]
 METADATA_STRUCT_COLS = ["average_rating", "rating_number", "price"]  # optionnels
 
-REQUIRED_INTERACTION_COLS = {"user_id", "parent_asin", "timestamp"}
+REQUIRED_INTERACTION_COLS = {"user_id", "parent_asin", "rating", "timestamp"}
 REQUIRED_METADATA_COLS = {"parent_asin"}
 
 
@@ -289,7 +290,9 @@ def load_target_df(
     if kind == "union":
         train_df = pd.read_parquet(paths[0], columns=columns, engine='pyarrow')
         test_df = pd.read_parquet(paths[1], columns=columns, engine='pyarrow')
-        return pd.concat([train_df, test_df], ignore_index=True)
+        combined = pd.concat([train_df, test_df], ignore_index=True)
+        del train_df, test_df
+        return combined
 
     raise ValueError(f"Unknown kind={kind}")
 
@@ -558,24 +561,17 @@ def build_joined_dataset(
     meta_keep_cols: List[str],
 ) -> pd.DataFrame:
 
-    # clés string
     inter_df = inter_df.copy()
-    meta_df = meta_df.copy()
     inter_df["parent_asin"] = inter_df["parent_asin"].astype("string")
-    meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
 
-    # garder colonnes utiles metadata
     keep = ["parent_asin"] + [c for c in meta_keep_cols if c in meta_df.columns]
     meta_slim = meta_df[keep].drop_duplicates(subset=["parent_asin"], keep="first")
 
-    # left join pour mesurer couverture + conserver interactions
     joined = inter_df.merge(meta_slim, on="parent_asin", how="left")
+    del inter_df, meta_slim
 
-    # nettoyage minimal cohérent Task0
-    # - clé obligatoire: on retire parent_asin manquant
     joined = joined[joined["parent_asin"].notna()].copy()
 
-    # texte: NaN -> ""
     for c in METADATA_TEXT_COLS:
         if c in joined.columns:
             joined[c] = joined[c].fillna("")
@@ -793,11 +789,26 @@ def run_all(
 
     # metadata
     meta_cfg = manifest["metadata"]
-    meta_df = load_target_df(meta_cfg)
+    meta_cols = ["parent_asin", "title", "description", "categories", "average_rating", "rating_number", "price"]
+    meta_df = load_target_df(meta_cfg, meta_cols)
     meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
     meta_key_set = set(meta_df["parent_asin"].dropna().unique().tolist())
 
+    if path_status.get("metadata", False):
+        schema_checks["metadata"] = run_schema_key_checks_for_target("metadata", meta_cfg, meta_df)
+    else:
+        schema_checks["metadata"] = {
+            "target": "metadata",
+            "ok": False,
+            "warnings": ["Chemin(s) manquant(s), vérification Task 3 ignorée"],
+        }
+
+    inter_cols = ["user_id", "parent_asin", "rating", "timestamp"]
+
     for name, cfg in manifest.items():
+        if cfg["role"] != "interactions":
+            continue
+
         if not path_status.get(name, False):
             schema_checks[name] = {
                 "target": name,
@@ -806,18 +817,9 @@ def run_all(
             }
             continue
 
-        # inter_cols = INTERACTION_MIN_COLS
-        # inter_df = load_target_df(cfg, columns=inter_cols)  # add optional columns param if missing
-        inter_df = load_target_df(cfg)
+        inter_df = load_target_df(cfg, columns=inter_cols)
 
         schema_checks[name] = run_schema_key_checks_for_target(name, cfg, inter_df)
-
-        if cfg["role"] != "interactions":
-            continue
-
-        if not path_status.get(name, False):
-            continue
-
 
         # 1) join quality
         jm = compute_join_quality_metrics(inter_df, meta_key_set=meta_key_set)
@@ -836,6 +838,7 @@ def run_all(
         # 4) final joined dataset
         meta_keep = ex["metadata_text_kept"] + ex["metadata_struct_kept"]
         joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep)
+        out_path = None
         if materialize_joined:
             out_path = save_joined_dataset(joined_df, name=name, out_dir="data/joining")
         final_datasets[name] = {
@@ -843,6 +846,9 @@ def run_all(
             "n_rows": len(joined_df),
             "n_cols": len(joined_df.columns),
         }
+
+        del inter_df, joined_df
+        gc.collect()
 
     result: Dict[str, Any] = {
         "manifest": manifest,
