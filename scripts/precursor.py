@@ -468,7 +468,7 @@ def jsonl_to_parquet_conversion() -> bool:
                 n_jsonl = sum(1 for line in f if line.strip())
             
             if n_parquet != n_jsonl:
-                print(f"  ⚠ Nombre de lignes incohérent, reconversion : {jsonl_path}")
+                print(f"   Nombre de lignes incohérent, reconversion : {jsonl_path}")
             else:
                 schema_jsonl = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
                 cols_jsonl = set(schema_jsonl.names())
@@ -476,9 +476,9 @@ def jsonl_to_parquet_conversion() -> bool:
                     print(f"  ✓ Déjà converti (vérifié) : {parquet_path}")
                     continue
                 else:
-                    print(f"  ⚠ Schéma incohérent, reconversion : {jsonl_path}")
+                    print(f"   Schéma incohérent, reconversion : {jsonl_path}")
         except Exception as e:
-            print(f"  ⚠ Fichier existant invalide ({e}), reconversion : {parquet_path}")
+            print(f"   Fichier existant invalide ({e}), reconversion : {parquet_path}")
         
         # -- 2. Détection des colonnes à surcharger ---------------------------
         schema_initial = pl.scan_ndjson(jsonl_path, infer_schema_length=1).collect_schema()
@@ -1254,7 +1254,7 @@ def clean_samples(
     for path in paths:
         if os.path.getsize(path) < 1024:
             if verbose:
-                print(f"  ⚠ Fichier ignoré (trop petit) : {path}")
+                print(f"   Fichier ignoré (trop petit) : {path}")
             continue
 
         if verbose:
@@ -1267,7 +1267,7 @@ def clean_samples(
 
         if n_original == 0:
             if verbose:
-                print("  ⚠ Fichier vide, passage au suivant.")
+                print("   Fichier vide, passage au suivant.")
             continue
 
         # Construire un masque unique au lieu de filtrer en chaîne
@@ -1351,7 +1351,7 @@ def filter_samples(
     for path in paths:
         if os.path.getsize(path) < 1024:
             if verbose:
-                print(f"  ⚠ Fichier ignoré (trop petit) : {path}")
+                print(f"   Fichier ignoré (trop petit) : {path}")
             continue
 
         if verbose:
@@ -1366,7 +1366,7 @@ def filter_samples(
 
         if n_before == 0:
             if verbose:
-                print("  ⚠ Fichier vide, passage au suivant.")
+                print("   Fichier vide, passage au suivant.")
             continue
 
         sparsity_before = 1 - n_before / (u_before * b_before)
@@ -1404,7 +1404,7 @@ def filter_samples(
                 break
         else:
             if verbose:
-                print(f"  ⚠ Limite de {max_iter} itérations atteinte.")
+                print(f"   Limite de {max_iter} itérations atteinte.")
 
         n_after = len(df)
         u_after = df["user_id"].nunique()
@@ -1494,7 +1494,7 @@ def split_and_save(
         df = pd.read_parquet(path)
         if len(df) == 0:
             if verbose:
-                print("  ⚠ Fichier vide.")
+                print("   Fichier vide.")
             continue
 
         # Dédoublonner : un user ne doit noter un livre qu'une seule fois
@@ -1550,7 +1550,7 @@ def split_and_save(
         violations = (users_train - users_test) | (users_test - users_train)
         if violations:
             if verbose:
-                print(f"  ⚠ {len(violations)} utilisateur(s) absent(s) "
+                print(f"   {len(violations)} utilisateur(s) absent(s) "
                       f"d'un ensemble")
         elif verbose:
             print("  ✓ Chaque utilisateur présent dans train ET test")

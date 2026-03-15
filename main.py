@@ -191,7 +191,7 @@ def precursor():
         print(f"{'=' * 70}")
 
     else:
-        print(f"  ⚠ Conversion Dataset jsonl_to_parquet_conversion ({e}),  : {result}")
+        print(f"   Conversion Dataset jsonl_to_parquet_conversion a échoué  : {result}")
 
     elapsed = time.time() - t_start
     print(f"\n{'=' * 70}")
