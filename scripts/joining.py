@@ -38,7 +38,7 @@ class SourceInfo:
 
 INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp"]
 
-METADATA_SCALAR_COLS = ["title"]
+METADATA_SCALAR_COLS = ["title", "subtitle"]
 METADATA_LIST_COLS = ["features", "description", "categories"]
 METADATA_STRUCT_COLS = ["average_rating", "rating_number", "price"]
 METADATA_NESTED_COLS = ["author", "details"]
@@ -47,6 +47,34 @@ METADATA_TEXT_COLS = METADATA_SCALAR_COLS + METADATA_LIST_COLS + METADATA_NESTED
 
 REQUIRED_INTERACTION_COLS = {"user_id", "parent_asin", "rating", "timestamp"}
 REQUIRED_METADATA_COLS = {"parent_asin"}
+
+
+COLUMN_JUSTIFICATIONS: Dict[str, str] = {
+    "user_id": "Identifiant unique de l'utilisateur, clé primaire pour les interactions.",
+    "parent_asin": "Clé de jointure commune interactions ↔ metadata.",
+    "rating": "Note attribuée par l'utilisateur, variable cible du système de recommandation.",
+    "timestamp": "Horodatage de l'interaction, nécessaire pour le split temporel.",
+    "title": "Titre du livre, exploitable pour la représentation textuelle (TF-IDF, embeddings).",
+    "subtitle": "Sous-titre du livre, complément textuel du titre.",
+    "description": "Description éditoriale, riche en contenu sémantique pour le content-based filtering.",
+    "categories": "Taxonomie hiérarchique Amazon, utile pour le filtrage par genre.",
+    "features": "Points clés marketing, contenu textuel complémentaire.",
+    "author": "Structure imbriquée → extraction de author_name. Permet le filtrage par auteur.",
+    "details": "Structure imbriquée → extraction de Publisher et Language. Attributs exploitables.",
+    "average_rating": "Note moyenne agrégée, signal de popularité pour le modèle.",
+    "rating_number": "Nombre total de notes, indicateur de popularité/confiance.",
+    "price": "Prix du livre, 23.9% manquant → imputation médiane retenue car distribution asymétrique.",
+    # Colonnes exclues
+    "main_category": "Exclu : valeur quasi-constante ('Books' pour >99% des lignes).",
+    "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
+    "videos": "Exclu : quasi-vide, non pertinent pour la recommandation textuelle.",
+    "store": "Exclu : redondant avec author (contient 'Author Name (Author)').",
+    "bought_together": "Exclu : colonne entièrement nulle dans le parquet.",
+    "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
+    "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
+    "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
+    "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
+}
 
 
 
@@ -294,13 +322,13 @@ def load_target_df(
         )
     if kind == "single":
         return pd.read_parquet(paths[0], columns=columns, 
-            )
+            engine='pyarrow')
 
     if kind == "union":
         train_df = pd.read_parquet(paths[0], columns=columns, 
-            )
+            engine='pyarrow')
         test_df = pd.read_parquet(paths[1], columns=columns, 
-            )
+            engine='pyarrow')
         combined = pd.concat([train_df, test_df], ignore_index=True)
         del train_df, test_df
         return combined
@@ -321,20 +349,47 @@ def check_required_columns(df: pd.DataFrame, required_cols: set[str]) -> Dict[st
     }
 
 
-def missingness_report(df: pd.DataFrame, cols: List[str]) -> List[Dict[str, Any]]:
+def missingness_report(
+    df: pd.DataFrame,
+    cols: List[str],
+) -> List[Dict[str, Any]]:
+    import numpy as np
     out = []
     n = len(df)
     for col in cols:
         if col not in df.columns:
-            out.append({"column": col, "missing_count": None, "missing_pct": None, "strategy": "absent"})
+            out.append({
+                "column": col, "missing_count": None, "missing_pct": None,
+                "empty_count": None, "empty_pct": None,
+                "effective_missing_pct": None, "strategy": "absent",
+            })
             continue
-        m = int(df[col].isna().sum())
-        pct = (m / n * 100.0) if n else 0.0
+
+        s = df[col]
+        m_null = int(s.isna().sum())
+
+        def _is_empty(val):
+            if val is None:
+                return True
+            if isinstance(val, str) and val.strip() == "":
+                return True
+            if isinstance(val, (list, tuple)) and len(val) == 0:
+                return True
+            if isinstance(val, np.ndarray) and len(val) == 0:
+                return True
+            return False
+
+        m_empty = int(s.dropna().apply(_is_empty).sum())
+        m_effective = m_null + m_empty
+
         out.append({
             "column": col,
-            "missing_count": m,
-            "missing_pct": round(pct, 4),
-            "strategy": None,  # rempli ensuite
+            "missing_count": m_null,
+            "missing_pct": round(m_null / n * 100, 4) if n else 0.0,
+            "empty_count": m_empty,
+            "empty_pct": round(m_empty / n * 100, 4) if n else 0.0,
+            "effective_missing_pct": round(m_effective / n * 100, 4) if n else 0.0,
+            "strategy": None,
         })
     return out
 
@@ -485,9 +540,15 @@ def run_schema_key_checks_for_target(
 
 
 def select_exploitable_columns(
-    inter_df: pd.DataFrame, 
-    meta_df: pd.DataFrame
+    inter_df: pd.DataFrame,
+    meta_df: pd.DataFrame,
+    source_inter_cols: List[str] | None = None,
+    source_meta_cols: List[str] | None = None,
 ) -> Dict[str, Any]:
+    if source_inter_cols is None:
+        source_inter_cols = list(inter_df.columns)
+    if source_meta_cols is None:
+        source_meta_cols = list(meta_df.columns)
 
     inter_available = [c for c in INTERACTION_MIN_COLS if c in inter_df.columns]
     meta_scalar = [c for c in METADATA_SCALAR_COLS if c in meta_df.columns]
@@ -495,7 +556,8 @@ def select_exploitable_columns(
     meta_nested = [c for c in METADATA_NESTED_COLS if c in meta_df.columns]
     meta_struct = [c for c in METADATA_STRUCT_COLS if c in meta_df.columns]
 
-    all_meta_kept = meta_scalar + meta_list + meta_nested + meta_struct
+    all_meta_kept = set(meta_scalar + meta_list + meta_nested + meta_struct + ["parent_asin"])
+    all_inter_kept = set(inter_available)
 
     return {
         "interactions_kept": inter_available,
@@ -504,14 +566,29 @@ def select_exploitable_columns(
         "metadata_scalar": meta_scalar,
         "metadata_list": meta_list,
         "metadata_nested": meta_nested,
-        "ignored_interactions_cols": [c for c in inter_df.columns if c not in inter_available],
-        "ignored_metadata_cols": [c for c in meta_df.columns if c not in all_meta_kept + ["parent_asin"]],
+        "ignored_interactions_cols": [c for c in source_inter_cols if c not in all_inter_kept],
+        "ignored_metadata_cols": [c for c in source_meta_cols if c not in all_meta_kept],
+        "justifications": {
+            c: COLUMN_JUSTIFICATIONS.get(c, "")
+            for c in inter_available + meta_scalar + meta_list + meta_nested + meta_struct
+        },
+        "exclusion_reasons": {
+            c: COLUMN_JUSTIFICATIONS.get(c, "au cas par cas / hors périmètre")
+            for c in source_inter_cols + source_meta_cols
+            if c not in all_inter_kept and c not in all_meta_kept
+        },
     }
 
 
 
 
-def compute_join_quality_metrics(inter_df: pd.DataFrame, meta_df: pd.DataFrame = None, meta_key_set: set[str] = None) -> Dict[str, Any]:
+
+def compute_join_quality_metrics(
+    inter_df: pd.DataFrame,
+    meta_df: pd.DataFrame = None,
+    meta_key_set: set[str] = None,
+    meta_total_count: int | None = None,
+) -> Dict[str, Any]:
     inter_key = inter_df["parent_asin"].astype("string")
     inter_items = set(inter_key.dropna().unique().tolist())
 
@@ -520,6 +597,9 @@ def compute_join_quality_metrics(inter_df: pd.DataFrame, meta_df: pd.DataFrame =
             raise ValueError("Provide meta_df or meta_key_set")
         meta_key_set = set(meta_df["parent_asin"].astype("string").dropna().unique().tolist())
 
+    if meta_total_count is None:
+        meta_total_count = len(meta_key_set)
+
     common_items = inter_items.intersection(meta_key_set)
     matched_mask = inter_key.isin(meta_key_set)
 
@@ -527,6 +607,7 @@ def compute_join_quality_metrics(inter_df: pd.DataFrame, meta_df: pd.DataFrame =
     n_inter_joined = int(matched_mask.sum())
     n_items_total = len(inter_items)
     n_items_with_meta = len(common_items)
+    n_meta_orphan = meta_total_count - n_items_with_meta
 
     return {
         "nb_parent_asin_communs": n_items_with_meta,
@@ -538,6 +619,15 @@ def compute_join_quality_metrics(inter_df: pd.DataFrame, meta_df: pd.DataFrame =
         "ratio_items_avec_meta": (n_items_with_meta / n_items_total) if n_items_total else 0.0,
         "interactions_non_jointes_si_inner_join": n_inter_total - n_inter_joined,
         "items_sans_meta": n_items_total - n_items_with_meta,
+        "nb_meta_total": meta_total_count,
+        "nb_meta_orphelines": n_meta_orphan,
+        "ratio_meta_utilisees": (n_items_with_meta / meta_total_count) if meta_total_count else 0.0,
+        "interpretation": (
+            f"{n_items_with_meta:,} items sur {meta_total_count:,} metadata "
+            f"({n_items_with_meta / meta_total_count * 100:.1f}%), "
+            f"cohérent avec le sous-échantillonnage P1."
+            if meta_total_count else "N/A"
+        ),
     }
 
 
@@ -545,7 +635,10 @@ def compute_join_quality_metrics(inter_df: pd.DataFrame, meta_df: pd.DataFrame =
 
 
 
-def _flatten_struct_col(series: pd.Series, key: str) -> pd.Series:
+def _flatten_struct_col(
+    series: pd.Series, 
+    key: str
+) -> pd.Series:
     """Extract a single key from a struct/dict column, return as string."""
     def _extract(val):
         if isinstance(val, dict):
@@ -558,7 +651,10 @@ def _flatten_struct_col(series: pd.Series, key: str) -> pd.Series:
 
 
 
-def _join_list_col(series: pd.Series, sep: str = " | ") -> pd.Series:
+def _join_list_col(
+    series: pd.Series, 
+    sep: str = " | "
+) -> pd.Series:
     """Join list/array elements into a single string."""
     def _join(val):
         if isinstance(val, (list, tuple)):
@@ -576,7 +672,9 @@ def _join_list_col(series: pd.Series, sep: str = " | ") -> pd.Series:
 
 
 
-def normalize_metadata_columns(df: pd.DataFrame) -> pd.DataFrame:
+def normalize_metadata_columns(
+    df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Normalize metadata columns in-place for parquet-safe serialization.
 
@@ -600,6 +698,10 @@ def normalize_metadata_columns(df: pd.DataFrame) -> pd.DataFrame:
         df["details_publisher"] = _flatten_struct_col(df["details"], "Publisher")
         df["details_language"] = _flatten_struct_col(df["details"], "Language")
         df.drop(columns=["details"], inplace=True)
+
+    if "price" in df.columns:
+        median_price = df["price"].median()
+        df["price"] = df["price"].fillna(median_price)
 
     return df
 
@@ -643,6 +745,7 @@ def build_joined_dataset(
     joined = normalize_metadata_columns(joined)
 
     return joined
+
 
 
 
@@ -768,20 +871,26 @@ def save_diagnostics(
     lines.append("## F. Valeurs manquantes et stratégie")
     lines.append("")
     missingness = result.get("missingness", {})
-    if not missingness:
-        lines.append("- (pas encore calculé)")
-        lines.append("")
-    else:
-        for name, rows in missingness.items():
-            lines.append(f"### {name}")
-            if not rows:
-                lines.append("- (aucune ligne)")
+    for name, miss_data in missingness.items():
+        lines.append(f"### {name}")
+        if isinstance(miss_data, dict) and "on_meta_global" in miss_data:
+            for scope, rows in miss_data.items():
+                scope_label = "Meta global (4.4M)" if scope == "on_meta_global" else "Sous-ensemble joint"
+                lines.append(f"#### {scope_label}")
+                for r in rows:
+                    eff = r.get("effective_missing_pct", r.get("missing_pct"))
+                    lines.append(
+                        f"- {r['column']}: NaN=`{r.get('missing_pct')}%`, "
+                        f"vide=`{r.get('empty_pct', 'N/A')}%`, "
+                        f"effectif=`{eff}%`, "
+                        f"strategy=`{r.get('strategy')}`"
+                    )
                 lines.append("")
-                continue
-            for r in rows:
+        else:
+            # rétrocompatibilité format liste
+            for r in miss_data:
                 lines.append(
-                    f"- {r.get('column')}: missing_count=`{r.get('missing_count')}`, "
-                    f"missing_pct=`{r.get('missing_pct')}`, strategy=`{r.get('strategy')}`"
+                    f"- {r['column']}: missing=`{r.get('missing_pct')}%` | {r.get('strategy')}"
                 )
             lines.append("")
 
@@ -837,7 +946,7 @@ def save_joined_dataset(
             print(f"\nMIXED TYPES in {col}:")
             print(f"\n{types}")
 
-    df.to_parquet(path)
+    df.to_parquet(path, index=False, engine='pyarrow')
 
     return str(path)
 
@@ -867,6 +976,9 @@ def run_all(
     path_status = validate_manifest_paths(manifest)
     source_infos = collect_source_documentation(manifest, verbose=verbose)
     
+    meta_source_info = next(s for s in source_infos if s.role == "metadata")
+    source_meta_all_cols = meta_source_info.columns
+
     schema_checks: Dict[str, Any] = {}
     join_metrics = {}
     exploitable_cols = {}
@@ -910,14 +1022,20 @@ def run_all(
         schema_checks[name] = run_schema_key_checks_for_target(name, cfg, inter_df)
 
         # 1) join quality
-        jm = compute_join_quality_metrics(inter_df, meta_key_set=meta_key_set)
+        jm = compute_join_quality_metrics(inter_df, meta_key_set=meta_key_set, meta_total_count=len(meta_key_set))
         join_metrics[name] = jm
 
         # 2) exploitable columns
-        ex = select_exploitable_columns(inter_df, meta_df)
+        inter_source_info = next(s for s in source_infos if s.name == name)
+        source_inter_all_cols = inter_source_info.columns
+        ex = select_exploitable_columns(
+            inter_df, meta_df,
+            source_inter_cols=source_inter_all_cols,
+            source_meta_cols=source_meta_all_cols,
+        )        
         exploitable_cols[name] = ex
 
-        # 3) missing values report + strategy
+        # 3) missing values report + strategy on Raw Parquet
         cols_to_check = ["parent_asin"] + ex["metadata_text_kept"] + ex["metadata_struct_kept"]
         miss = missingness_report(meta_df, cols_to_check)
         miss = attach_missingness_strategy(miss)
@@ -934,6 +1052,12 @@ def run_all(
                 f"\nlen(joined_df.columns).: {len(joined_df.columns)}"
                 f"\njoined_df.columns: {joined_df.columns}"
             )
+        miss_joined = missingness_report(joined_df, list(joined_df.columns))
+        miss_joined = attach_missingness_strategy(miss_joined)
+        missingness[name] = {
+            "on_meta_global": miss,
+            "on_joined_subset": miss_joined,
+        }
         out_path = None
         if materialize_joined:
             out_path = save_joined_dataset(joined_df, name=name, out_dir="data/joining", verbose=verbose)
@@ -1021,7 +1145,6 @@ def cli_print_results(
             print(
                 f"  • {s['name']} | rows={_fmt_num(s.get('n_rows'))} "
                 f"| cols={_fmt_num(s.get('n_cols'))} | exists={s.get('exists')}"
-                f"{s['columns']}"
             )
             for p in s.get("paths", []):
                 print(f"      path: {p}")
@@ -1065,40 +1188,92 @@ def cli_print_results(
             print(f"  • {name}")
             print(f"      nb_parent_asin_communs: {_fmt_num(jm.get('nb_parent_asin_communs'))}")
             print(
-                "      nb_interactions_jointes / nb_interactions_totales: "
+                "      interactions jointes / totales: "
                 f"{_fmt_num(jm.get('nb_interactions_jointes'))} / {_fmt_num(jm.get('nb_interactions_totales'))} "
                 f"({_fmt_pct(jm.get('ratio_interactions_jointes'))})"
             )
             print(
-                "      nb_items_avec_meta / nb_items_totaux: "
+                "      items avec meta / totaux: "
                 f"{_fmt_num(jm.get('nb_items_avec_meta'))} / {_fmt_num(jm.get('nb_items_totaux'))} "
                 f"({_fmt_pct(jm.get('ratio_items_avec_meta'))})"
             )
-            print(f"      interactions_non_jointes_si_inner_join: {_fmt_num(jm.get('interactions_non_jointes_si_inner_join'))}")
-            print(f"      items_sans_meta: {_fmt_num(jm.get('items_sans_meta'))}")
+            print(f"      interactions perdues (inner join): {_fmt_num(jm.get('interactions_non_jointes_si_inner_join'))}")
+            print(f"      items sans meta: {_fmt_num(jm.get('items_sans_meta'))}")
+            if "nb_meta_orphelines" in jm:
+                print(
+                    f"      meta orphelines: {_fmt_num(jm.get('nb_meta_orphelines'))} / "
+                    f"{_fmt_num(jm.get('nb_meta_total'))} "
+                    f"({_fmt_pct(1.0 - jm.get('ratio_meta_utilisees', 0))})"
+                )
+            if "interpretation" in jm:
+                print(f"      interprétation: {jm['interpretation']}")
 
     # ------------------------------------------------------------------
-    # 4) Attributs exploitables + manquants
+    # 4) Attributs exploitables + justifications
     # ------------------------------------------------------------------
-    print("\n[4] Attributs exploitables et valeurs manquantes")
+    print("\n[4] Attributs exploitables")
     exploitable = result.get("exploitable_columns", {})
-    miss = result.get("missingness", {})
     for name in sorted(exploitable.keys()):
         ex = exploitable[name]
         print(f"  • {name}")
         print(f"      interactions_kept: {ex.get('interactions_kept', [])}")
-        print(f"      metadata_text_kept: {ex.get('metadata_text_kept', [])}")
-        print(f"      metadata_struct_kept: {ex.get('metadata_struct_kept', [])}")
-        rows = miss.get(name, [])
-        if rows:
-            print("      missingness (colonne -> % -> stratégie):")
-            for r in rows:
-                print(f"        - {r.get('column')}: {r.get('missing_pct')}% | {r.get('strategy')}")
+        print(f"      metadata_scalar:   {ex.get('metadata_scalar', [])}")
+        print(f"      metadata_list:     {ex.get('metadata_list', [])}")
+        print(f"      metadata_nested:   {ex.get('metadata_nested', [])}")
+        print(f"      metadata_struct:   {ex.get('metadata_struct_kept', [])}")
+
+        ignored_inter = ex.get("ignored_interactions_cols", [])
+        ignored_meta = ex.get("ignored_metadata_cols", [])
+        if ignored_inter:
+            print(f"      ignorées (interactions source): {ignored_inter}")
+        if ignored_meta:
+            print(f"      ignorées (metadata source):     {ignored_meta}")
+
+        justifications = ex.get("justifications", {})
+        if justifications:
+            print("      justifications (colonnes retenues):")
+            for col, reason in justifications.items():
+                print(f"        + {col}: {reason}")
+
+        exclusions = ex.get("exclusion_reasons", {})
+        if exclusions:
+            print("      raisons d'exclusion:")
+            for col, reason in exclusions.items():
+                print(f"        - {col}: {reason}")
 
     # ------------------------------------------------------------------
-    # 5) Jeux finaux produits
+    # 5) Valeurs manquantes (global + sous-ensemble joint)
     # ------------------------------------------------------------------
-    print("\n[5] Jeux finaux cohérents produits")
+    print("\n[5] Valeurs manquantes et stratégie")
+    miss = result.get("missingness", {})
+    for name in sorted(miss.keys()):
+        miss_data = miss[name]
+        print(f"  • {name}")
+        if isinstance(miss_data, dict) and "on_meta_global" in miss_data:
+            for scope, rows in miss_data.items():
+                label = "Meta global (4.4M)" if scope == "on_meta_global" else "Sous-ensemble joint"
+                print(f"      [{label}]")
+                for r in rows:
+                    eff = r.get("effective_missing_pct")
+                    eff_str = f", effectif={eff}%" if eff is not None else ""
+                    empty = r.get("empty_count")
+                    empty_str = f", vides={_fmt_num(empty)}" if empty is not None else ""
+                    print(
+                        f"        - {r.get('column')}: "
+                        f"NaN={r.get('missing_pct')}%{empty_str}{eff_str} "
+                        f"| {r.get('strategy')}"
+                    )
+        else:
+            for r in miss_data:
+                print(
+                    f"        - {r.get('column')}: "
+                    f"{r.get('missing_pct')}% | {r.get('strategy')}"
+                )
+
+    # ------------------------------------------------------------------
+    # 6) Jeux finaux produits
+    # ------------------------------------------------------------------
+    print("\n[6] Jeux finaux cohérents produits")
     finals = result.get("final_datasets", {})
     if not finals:
         print("  (pas encore matérialisé)")
@@ -1114,8 +1289,7 @@ def cli_print_results(
     print("\n[Artifacts]")
     print(f"- JSON: {artifacts.get('json', 'N/A')}")
     print(f"- MD:   {artifacts.get('md', 'N/A')}")
-    if t_start:
-        elapsed = time.time() - t_start
+    elapsed = time.time() - t_start if t_start else 0.0
     print("\n" + "=" * 86)
     print(f"FIN — Résumé prêt pour notebook/rapport  ||  Pipeline complet en {elapsed:.1f}s")
     print("=" * 86)

@@ -19,6 +19,7 @@ import sys
 
 from queue import Empty
 
+from scripts import joining
 from scripts.precursor import (
     RAPIDS_AVAILABLE,
     RAW_BOOKS_PATH,
@@ -216,7 +217,7 @@ def main():
     else:
         precursor()
 
-    if _joining_files_checker():
+    if _joining_files_checker() and os.path.isfile("results/joining/joining_diagnostics.md"):
         cli_print_md_results()    
     else:
         print()
