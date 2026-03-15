@@ -40,7 +40,9 @@ INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp"]
 METADATA_TEXT_COLS = ["title", "description", "categories"]
 METADATA_STRUCT_COLS = ["average_rating", "rating_number", "price"]  # optionnels
 
-def _required_cols_for_role(role: str) -> set[str]:
+def _required_cols_for_role(
+    role: str
+) -> set[str]:
     if role == "interactions":
         return REQUIRED_INTERACTION_COLS
     if role == "metadata":
@@ -49,7 +51,9 @@ def _required_cols_for_role(role: str) -> set[str]:
 
 
 
-def get_manifest(include_optional_raw: bool = False) -> Dict[str, Dict[str, Any]]:
+def get_manifest(
+    include_optional_raw: bool = False
+) -> Dict[str, Dict[str, Any]]:
     base = Path("data/processed")
     raw_base = Path("data/raw/parquet")
 
@@ -109,6 +113,25 @@ def get_manifest(include_optional_raw: bool = False) -> Dict[str, Dict[str, Any]
         }
 
     return manifest
+
+
+def build_p1_reuse_note(
+    manifest: Dict[str, Dict[str, Any]], 
+    sources: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    # sources = result["sources"] (liste de dict après asdict)
+    interactions = [s for s in sources if s.get("role") == "interactions"]
+
+    return {
+        "statement": "P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).",
+        "interaction_targets": [s["name"] for s in interactions],
+        "rows_by_target": {s["name"]: s["n_rows"] for s in interactions},
+        "paths_by_target": {s["name"]: s["paths"] for s in interactions},
+        "methodological_note": (
+            "Aucun nouvel échantillonnage massif du corpus complet n'est effectué; "
+            "les jeux issus de P1 sont réexploités pour la fusion avec meta_Books."
+        ),
+    }
 
 
 def validate_manifest_paths(manifest: Dict[str, Dict[str, Any]]) -> Dict[str, bool]:
@@ -528,6 +551,12 @@ def save_source_diagnostics(result: Dict[str, Any], out_dir: str = "results/join
     return {"json": str(json_path), "md": str(md_path)}
 
 
+def save_joined_dataset(df: pd.DataFrame, name: str, out_dir: str = "results/joining") -> str:
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"{name}_joined.parquet"
+    df.to_parquet(path, index=False)
+    return str(path)
 
 
 def run_all(
@@ -552,6 +581,15 @@ def run_all(
     source_infos = collect_source_documentation(manifest, verbose=verbose)
     
     schema_checks: Dict[str, Any] = {}
+    join_metrics = {}
+    exploitable_cols = {}
+    missingness = {}
+    final_datasets = {}
+
+    # metadata
+    meta_cfg = manifest["metadata"]
+    meta_df = load_target_df(meta_cfg)
+
 
     for name, cfg in manifest.items():
         if not path_status.get(name, False):
@@ -571,14 +609,50 @@ def run_all(
                 f"missing_parent_asin={mk.get('missing_parent_asin_count')} "
                 f"({mk.get('missing_parent_asin_pct')}%)"
             )
- 
+
+        if cfg["role"] != "interactions":
+            continue
+
+        if not path_status.get(name, False):
+            continue
+
+        inter_df = load_target_df(cfg)
+
+        # 1) join quality
+        jm = compute_join_quality_metrics(inter_df, meta_df)
+        join_metrics[name] = jm
+
+        # 2) exploitable columns
+        ex = select_exploitable_columns(inter_df, meta_df)
+        exploitable_cols[name] = ex
+
+        # 3) missing values report + strategy
+        cols_to_check = ["parent_asin"] + ex["metadata_text_kept"] + ex["metadata_struct_kept"]
+        miss = missingness_report(meta_df, cols_to_check)
+        miss = attach_missingness_strategy(miss)
+        missingness[name] = miss
+
+        # 4) final joined dataset
+        meta_keep = ex["metadata_text_kept"] + ex["metadata_struct_kept"]
+        joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep)
+        out_path = save_joined_dataset(joined_df, name=name, out_dir="results/joining")
+        final_datasets[name] = {
+            "path": out_path,
+            "n_rows": len(joined_df),
+            "n_cols": len(joined_df.columns),
+        }
+
 
     result: Dict[str, Any] = {
         "manifest": manifest,
         "path_status": path_status,
         "sources": [asdict(s) for s in source_infos],
         "schema_checks": schema_checks,
-        "join_quality_metrics": join_quality_metrics
+        "join_metrics": join_metrics,
+        "p1_reuse_note": build_p1_reuse_note(manifest, result["sources"]),
+        "exploitable_columns": exploitable_cols,
+        "missingness": missingness,
+        "final_datasets": final_datasets,
     }
 
     if export_artifacts:
