@@ -80,7 +80,7 @@ def precursor():
     try:
         result = jsonl_to_parquet_conversion()
     except Exception as e:
-        print(f"  ⚠ Conversion Dataset jsonl_to_parquet_conversion a échoué : {e}")
+        print(f"  Conversion Dataset jsonl_to_parquet_conversion a échoué : {e}")
         sys.exit(1) 
                
     if result:
@@ -152,7 +152,7 @@ def precursor():
 
         elapsed = time.time() - t_start
         print(f"\n{'=' * 70}")
-        print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
+        print(f"  Pipeline complet en {elapsed:.1f}s")
         print(f"{'=' * 70}")
 
     else:
@@ -160,7 +160,7 @@ def precursor():
 
     elapsed = time.time() - t_start
     print(f"\n{'=' * 70}")
-    print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
+    print(f"  Pipeline complet en {elapsed:.1f}s")
     print(f"{'=' * 70}")
 
 def main():
