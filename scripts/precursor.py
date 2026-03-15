@@ -164,7 +164,7 @@ TARGET_TOTAL = 2_000_000
 SAMPLE_ACTIVE_DIR = f"{PROCESSED_DATA_DIR}sample-active-users"
 SAMPLE_TEMPORAL_DIR = f"{PROCESSED_DATA_DIR}sample-temporal"
 
-# Globs pour le post-traitement (résolus à l'exécution via _resolve_glob())
+# Globs pour le post-traitement (résolus à l'exécution via resolve_glob())
 SAMPLE_GLOB_ORIGINAL = f"{PROCESSED_DATA_DIR}sample-*/*_original.parquet"
 SAMPLE_GLOB_CLEANED = f"{PROCESSED_DATA_DIR}sample-*/*_cleaned.parquet"
 SAMPLE_GLOB_FILTERED = f"{PROCESSED_DATA_DIR}sample-*/*_filtered.parquet"
@@ -188,7 +188,7 @@ TEST_RATIO = 1.0 - TRAIN_RATIO
 # Utilitaires internes
 # =============================================================================
 
-def _resolve_glob(pattern: str) -> list[str]:
+def resolve_glob(pattern: str) -> list[str]:
     """Résout un glob pattern en une liste triée de chemins existants."""
     return sorted(glob.glob(pattern))
 
@@ -243,7 +243,7 @@ def _print_gpu_status(label: str = "") -> None:
             pynvml.nvmlShutdown()
         except Exception:
             pass
-
+gc
 
 def _print_ram_status(label: str = "") -> None:
     """Affiche la mémoire RAM consommée par le processus courant (optionnel, via psutil)."""
@@ -253,6 +253,188 @@ def _print_ram_status(label: str = "") -> None:
         print(f"  [{label}] RAM process: {mem.rss / 1e9:.2f} GB")
     except ImportError:
         pass
+
+
+
+
+
+def deterministic_sample_users(
+    user_ids, 
+    num_users: int = NUM_USERS, 
+    seed: int = SEED,
+) -> list[str]:
+    """
+    Deterministic backend-independent sampling by hash ranking.
+    user_ids: iterable of user_id (any backend, convertable to str)
+    """
+    seen = set()
+    scored = []
+
+    for uid in user_ids:
+        s = str(uid)
+        if s in seen:
+            continue
+        seen.add(s)
+
+        h = hashlib.blake2b(f"{seed}:{s}".encode("utf-8"), digest_size=8).digest()
+        score = int.from_bytes(h, "big")
+        scored.append((score, s))
+
+    scored.sort(key=lambda x: x[0])  # smallest hashes first
+    return [uid for _, uid in scored[:min(num_users, len(scored))]]
+
+
+def _get_free_vram_bytes(
+    device_index: int = 0, 
+    fallback_bytes: int = 2 * 1024**3
+) -> int:
+    if pynvml is not None:
+        try:
+            pynvml.nvmlInit()
+            handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
+            info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            print(f"Free Vram : {int(info.free)/1e9:.2f}")
+            return max(1, int(info.free))
+        except Exception:
+            pass
+        finally:
+            try:
+                pynvml.nvmlShutdown()
+            except Exception:
+                pass
+    if RAPIDS_AVAILABLE and cp is not None:
+        try:
+            free_bytes, _ = cp.cuda.runtime.memGetInfo()
+            return max(1, int(free_bytes))
+            
+        except Exception:
+            pass
+    return max(1, int(fallback_bytes))
+
+
+def _droppable_columns(table: pa.Table) -> list[str]:
+    dominated = []
+    for field in table.schema:
+        if pa.types.is_large_list(field.type) or pa.types.is_nested(field.type):
+            dominated.append(field.name)
+    return dominated
+
+
+def _estimates_bytes_per_row(
+    parquet_path: str,
+    columns: list[str],
+    sample_rows: int = 200_000,
+)-> int:
+    pf = pq.ParquetFile(parquet_path)
+
+    batches = pf.iter_batches(
+        batch_size=sample_rows,
+        columns=columns if columns else None,
+    )
+    first_batch = next(batches, None)
+    if first_batch is None or first_batch.num_rows == 0:
+        return 1
+    table = pa.Table.from_batches([first_batch])
+    result = max(1, table.nbytes // table.num_rows)
+    print(f"_estimates_bytes_per_row : {result}")
+    return result
+
+
+def compute_adaptive_chunk_rows(
+    parquet_path: str,
+    probe_columns: list[str],
+    safety_ratio: float = 0.9,
+    min_rows: int = 50_000,
+    # max_rows: int = 500_000_000
+) -> int:
+    free_vram = _get_free_vram_bytes()
+    bytes_per_row = _estimates_bytes_per_row(
+        parquet_path,
+        probe_columns
+        )
+    bytes_per_row = max(1, int(bytes_per_row))
+
+    raw_rows = int((free_vram * float(safety_ratio)) / bytes_per_row)
+
+    clamped_rows = max(min_rows, raw_rows)
+
+    print(f"Clamped_rows : {clamped_rows}")
+    return int(clamped_rows)
+
+
+def _is_oom_error(exc: Exception) -> bool:
+    if isinstance(exc, MemoryError):
+        return True
+
+    msg = str(exc).lower()
+    patterns = (
+        "out of memory",
+        "cudaerrormemoryallocation",
+        "std::bad_alloc",
+        "rmm",
+        "memory pool",
+    )
+    if any(p in msg for p in patterns):
+        return True
+
+    # Optionnel: checks de types RAPIDS si disponibles
+    try:
+        import rmm  # noqa: F401
+        # selon versions RAPIDS, les classes peuvent varier
+    except Exception:
+        pass
+
+    return False
+
+
+def _process_table_with_oom_retry(
+    table: pa.Table,
+    process_fn: Callable[[pa.Table], None],
+    min_rows: int,
+    verbose: bool = False,
+) -> tuple[int, int]:
+    """
+    Traite une table Arrow avec retry OOM via split binaire.
+    Returns: (oom_retries, split_count)
+    """
+    queue = deque([table])
+    oom_retries = 0
+    split_count = 0
+
+    while queue:
+        current = queue.popleft()
+        try:
+            process_fn(current)
+            _flush_memory()
+        except Exception as exc:
+            if not _is_oom_error(exc):
+                raise
+
+            oom_retries += 1
+            _flush_memory()
+
+            if current.num_rows <= min_rows:
+                # trop petit pour split, on remonte l'erreur
+                raise
+
+            mid = current.num_rows // 2
+            left = current.slice(0, mid)
+            right = current.slice(mid)
+
+            split_count += 1
+            # traiter left puis right
+            queue.appendleft(right)
+            queue.appendleft(left)
+
+            if verbose:
+                print(f"  OOM retry: split {current.num_rows:,} -> {left.num_rows:,} + {right.num_rows:,}")
+
+    return oom_retries, split_count
+    
+
+# =============================================================================
+#   CONVERSION JEU DE DONNEES
+# =============================================================================
 
 
 def jsonl_to_parquet_conversion() -> bool:
@@ -379,181 +561,10 @@ def jsonl_to_parquet_conversion() -> bool:
     return result
 
 
-def deterministic_sample_users(
-    user_ids, 
-    num_users: int = NUM_USERS, 
-    seed: int = SEED,
-) -> list[str]:
-    """
-    Deterministic backend-independent sampling by hash ranking.
-    user_ids: iterable of user_id (any backend, convertable to str)
-    """
-    seen = set()
-    scored = []
-
-    for uid in user_ids:
-        s = str(uid)
-        if s in seen:
-            continue
-        seen.add(s)
-
-        h = hashlib.blake2b(f"{seed}:{s}".encode("utf-8"), digest_size=8).digest()
-        score = int.from_bytes(h, "big")
-        scored.append((score, s))
-
-    scored.sort(key=lambda x: x[0])  # smallest hashes first
-    return [uid for _, uid in scored[:min(num_users, len(scored))]]
-
-
-def _get_free_vram_bytes(
-    device_index: int = 0, 
-    fallback_bytes: int = 2 * 1024**3
-) -> int:
-    if pynvml is not None:
-        try:
-            pynvml.nvmlInit()
-            handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
-            info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            print(f"Free Vram : {int(info.free)/1e9:.2f}")
-            return max(1, int(info.free))
-        except Exception:
-            pass
-        finally:
-            try:
-                pynvml.nvmlShutdown()
-            except Exception:
-                pass
-    if RAPIDS_AVAILABLE and cp is not None:
-        try:
-            free_bytes, _ = cp.cuda.runtime.memGetInfo()
-            return max(1, int(free_bytes))
-            
-        except Exception:
-            pass
-    return max(1, int(fallback_bytes))
-
-
-def _droppable_columns(table: pa.Table) -> list[str]:
-    dominated = []
-    for field in table.schema:
-        if pa.types.is_large_list(field.type) or pa.types.is_nested(field.type):
-            dominated.append(field.name)
-    return dominated
-
-
-def _estimates_bytes_per_row(
-    parquet_path: str,
-    columns: list[str],
-    sample_rows: int = 200_000,
-)-> int:
-    pf = pq.ParquetFile(parquet_path)
-
-    batches = pf.iter_batches(
-        batch_size=sample_rows,
-        columns=columns if columns else None,
-    )
-    first_batch = next(batches, None)
-    if first_batch is None or first_batch.num_rows == 0:
-        return 1
-    table = pa.Table.from_batches([first_batch])
-    return max(1, table.nbytes // table.num_rows)
-
-
-def _compute_adaptive_chunk_rows(
-    parquet_path: str,
-    probe_columns: list[str],
-    safety_ratio: float = 0.9,
-    min_rows: int = 50_000,
-    # max_rows: int = 500_000_000
-) -> int:
-    free_vram = _get_free_vram_bytes()
-    bytes_per_row = _estimates_bytes_per_row(
-        parquet_path,
-        probe_columns
-        )
-    bytes_per_row = max(1, int(bytes_per_row))
-
-    raw_rows = int((free_vram * float(safety_ratio)) / bytes_per_row)
-
-    clamped_rows = max(min_rows, raw_rows)
-
-    print(f"Clamped_rows : {clamped_rows}")
-    return int(clamped_rows)
-
-
-def _is_oom_error(exc: Exception) -> bool:
-    if isinstance(exc, MemoryError):
-        return True
-
-    msg = str(exc).lower()
-    patterns = (
-        "out of memory",
-        "cudaerrormemoryallocation",
-        "std::bad_alloc",
-        "rmm",
-        "memory pool",
-    )
-    if any(p in msg for p in patterns):
-        return True
-
-    # Optionnel: checks de types RAPIDS si disponibles
-    try:
-        import rmm  # noqa: F401
-        # selon versions RAPIDS, les classes peuvent varier
-    except Exception:
-        pass
-
-    return False
-
-
-def _process_table_with_oom_retry(
-    table: pa.Table,
-    process_fn: Callable[[pa.Table], None],
-    min_rows: int,
-    verbose: bool = False,
-) -> tuple[int, int]:
-    """
-    Traite une table Arrow avec retry OOM via split binaire.
-    Returns: (oom_retries, split_count)
-    """
-    queue = deque([table])
-    oom_retries = 0
-    split_count = 0
-
-    while queue:
-        current = queue.popleft()
-        try:
-            process_fn(current)
-            _flush_memory()
-        except Exception as exc:
-            if not _is_oom_error(exc):
-                raise
-
-            oom_retries += 1
-            _flush_memory()
-
-            if current.num_rows <= min_rows:
-                # trop petit pour split, on remonte l'erreur
-                raise
-
-            mid = current.num_rows // 2
-            left = current.slice(0, mid)
-            right = current.slice(mid)
-
-            split_count += 1
-            # traiter left puis right
-            queue.appendleft(right)
-            queue.appendleft(left)
-
-            if verbose:
-                print(f"  OOM retry: split {current.num_rows:,} -> {left.num_rows:,} + {right.num_rows:,}")
-
-    return oom_retries, split_count
-
-    
 # =============================================================================
 #   ÉCHANTILLONNAGE GPU
 # =============================================================================
+
 
 def sample_active_users_gpu(
     parquet_path: str,
@@ -590,14 +601,14 @@ def sample_active_users_gpu(
     if verbose:
         print("Phase 1 : Chargement en mémoire GPU...")
 
-    batch_size_a = _compute_adaptive_chunk_rows(
+    batch_size_a = compute_adaptive_chunk_rows(
         parquet_path,
-        ["user_id"],
+        [],
     )
 
     if verbose:
         free = _get_free_vram_bytes()
-        bpr = _estimates_bytes_per_row(parquet_path, ["user_id"])
+        bpr = _estimates_bytes_per_row(parquet_path, [])
         print(f"  Pass A: batch_size={batch_size_a:,} (free_vram={free/1e9:.2f} GB, bpr={bpr} B)")
 
     user_counts_cpu = Counter()
@@ -660,7 +671,7 @@ def sample_active_users_gpu(
     if verbose:
         print("\nPhase 2 : Filtrage...")
     
-    batch_size_b = _compute_adaptive_chunk_rows(parquet_path, [])  # all columns
+    batch_size_b = compute_adaptive_chunk_rows(parquet_path, [])  # all columns
 
     if verbose:
         free = _get_free_vram_bytes()
@@ -684,7 +695,7 @@ def sample_active_users_gpu(
                 t_slim = t.drop(_droppable_columns(t))
                 gdf = cudf.DataFrame.from_arrow(t_slim)
                 mask = gdf["user_id"].isin(selected_set_gpu)
-                
+                print(f"  GPU DataFrame: {gdf.memory_usage(deep=True).sum() / 1e9:.2f} GB")
                 if not mask.any():
                     del gdf, mask
                     return
@@ -707,6 +718,7 @@ def sample_active_users_gpu(
         if writer is not None:
             writer.close()
 
+    flush_gpu()
     _flush_memory()
 
     if verbose:
@@ -757,7 +769,7 @@ def sample_temporal_gpu(
     if verbose:
         _print_gpu_status("Load start")
 
-    batch_size_a = _compute_adaptive_chunk_rows(parquet_path, ["user_id", "timestamp"])
+    batch_size_a = compute_adaptive_chunk_rows(parquet_path, ["user_id", "timestamp"])
     if verbose:
         print(f"  Pass A: batch_size={batch_size_a:,}")
 
@@ -771,8 +783,9 @@ def sample_temporal_gpu(
         table = pa.Table.from_batches([batch])
 
         def _count_temporal_chunk(t: pa.Table) -> None:
-            t_slim = t.drop(_droppable_columns(t))
-            gdf = cudf.DataFrame.from_arrow(t_slim)
+            # t_slim = t.drop(_droppable_columns(t))
+            # gdf = cudf.DataFrame.from_arrow(t_slim)
+            gdf = cudf.DataFrame.from_arrow(t)
 
             # Normalize timestamp -> year
             ts = gdf["timestamp"]
@@ -845,7 +858,7 @@ def sample_temporal_gpu(
     # sampled_series = active_user_ids.iloc[cp.asnumpy(indices)]
     # del active_user_ids, indices
 
-    batch_size_b = _compute_adaptive_chunk_rows(parquet_path, [])
+    batch_size_b = compute_adaptive_chunk_rows(parquet_path, [])
 
     if verbose:
         print(f"  Pass B: batch_size={batch_size_b:,}")
@@ -1228,7 +1241,7 @@ def clean_samples(
     Returns:
         Liste des chemins des fichiers nettoyés créés.
     """
-    paths = _resolve_glob(glob_pattern)
+    paths = resolve_glob(glob_pattern)
     if not paths:
         print(f"  Aucun fichier trouvé pour : {glob_pattern}")
         return []
@@ -1325,7 +1338,7 @@ def filter_samples(
     Returns:
         Liste des chemins des fichiers filtrés créés.
     """
-    paths = _resolve_glob(glob_pattern)
+    paths = resolve_glob(glob_pattern)
     if not paths:
         print(f"  Aucun fichier trouvé pour : {glob_pattern}")
         return []
@@ -1459,7 +1472,7 @@ def split_and_save(
         Liste des répertoires de splits créés.
     """
     test_ratio = 1.0 - train_ratio
-    paths = _resolve_glob(glob_pattern)
+    paths = resolve_glob(glob_pattern)
     if not paths:
         print(f"  Aucun fichier trouvé pour : {glob_pattern}")
         return []

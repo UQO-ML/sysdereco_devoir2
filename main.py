@@ -12,17 +12,22 @@ Usage : python main.py
 """
 
 import gc
+import os
 import time
 import sys
+
+from queue import Empty
 
 from scripts.precursor import (
     RAPIDS_AVAILABLE,
     RAW_BOOKS_PATH,
     SAMPLE_ACTIVE_DIR,
     SAMPLE_TEMPORAL_DIR,
+    SAMPLE_GLOB_FILTERED,
     TARGET_YEARS,
     # Dataset preparation (JSONL  to Parquet)
     jsonl_to_parquet_conversion,
+    resolve_glob,
     # GPU sampling
     sample_active_users_gpu,
     sample_temporal_gpu,
@@ -39,7 +44,31 @@ from scripts.precursor import (
 )
 
 
-def main():
+def _final_files_checker() -> bool:
+
+    result = True
+    filtered_data_paths = resolve_glob(SAMPLE_GLOB_FILTERED)
+    active_splits_dir_path = f"{SAMPLE_ACTIVE_DIR}/splits/"
+    temporal_splits_dir_path = f"{SAMPLE_TEMPORAL_DIR}/splits/"
+
+    if len(filtered_data_paths) == 0:
+        result = False
+    for path in filtered_data_paths:
+        if os.path.getsize(path) < 1024:
+            result = False
+    
+    active_splits_dir = os.listdir(active_splits_dir_path) if os.path.isdir(active_splits_dir_path) else []
+    if len(active_splits_dir) == 0:
+        result = False
+
+    temporal_splits_dir = os.listdir(temporal_splits_dir_path) if os.path.isdir(temporal_splits_dir_path) else []
+    if len(temporal_splits_dir) == 0:
+        result = False
+
+    return result
+
+
+def precursor():
     t_start = time.time()
 
     use_gpu = RAPIDS_AVAILABLE
@@ -133,6 +162,15 @@ def main():
     print(f"\n{'=' * 70}")
     print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
     print(f"{'=' * 70}")
+
+def main():
+    final_files_checker = False
+    final_files_checker = _final_files_checker()
+    print(f"final_files_checker : {final_files_checker}")
+    if final_files_checker:
+        print("Echantillon present")
+    else:
+        precursor()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,639 @@
+{
+  "manifest": {
+    "active_pre_split": {
+      "stage": "pre_split",
+      "variant": "active",
+      "role": "interactions",
+      "kind": "single",
+      "paths": [
+        "data/processed/sample-active-users/active_users_filtered.parquet"
+      ]
+    },
+    "active_post_split_union": {
+      "stage": "post_split",
+      "variant": "active",
+      "role": "interactions",
+      "kind": "union",
+      "paths": [
+        "data/processed/sample-active-users/splits/train.parquet",
+        "data/processed/sample-active-users/splits/test.parquet"
+      ]
+    },
+    "temporal_pre_split": {
+      "stage": "pre_split",
+      "variant": "temporal",
+      "role": "interactions",
+      "kind": "single",
+      "paths": [
+        "data/processed/sample-temporal/temporal_filtered.parquet"
+      ]
+    },
+    "temporal_post_split_union": {
+      "stage": "post_split",
+      "variant": "temporal",
+      "role": "interactions",
+      "kind": "union",
+      "paths": [
+        "data/processed/sample-temporal/splits/train.parquet",
+        "data/processed/sample-temporal/splits/test.parquet"
+      ]
+    },
+    "metadata": {
+      "stage": "raw",
+      "variant": "meta_books",
+      "role": "metadata",
+      "kind": "single",
+      "paths": [
+        "data/raw/parquet/meta_Books.parquet"
+      ]
+    },
+    "books_reviews_raw": {
+      "stage": "raw",
+      "variant": "books",
+      "role": "optional_debug",
+      "kind": "single",
+      "paths": [
+        "data/raw/parquet/Books.parquet"
+      ]
+    }
+  },
+  "path_status": {
+    "active_pre_split": true,
+    "active_post_split_union": true,
+    "temporal_pre_split": true,
+    "temporal_post_split_union": true,
+    "metadata": true,
+    "books_reviews_raw": true
+  },
+  "sources": [
+    {
+      "name": "active_pre_split",
+      "stage": "pre_split",
+      "variant": "active",
+      "role": "interactions",
+      "kind": "single",
+      "paths": [
+        "data/processed/sample-active-users/active_users_filtered.parquet"
+      ],
+      "exists": true,
+      "format": "parquet",
+      "size_bytes": 318642272,
+      "n_rows": 508878,
+      "n_cols": 10,
+      "columns": [
+        "rating",
+        "title",
+        "text",
+        "images",
+        "asin",
+        "parent_asin",
+        "user_id",
+        "timestamp",
+        "helpful_vote",
+        "verified_purchase"
+      ],
+      "details": {
+        "exists": true,
+        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/active_users_filtered.parquet",
+        "format": "parquet",
+        "size_bytes": 318642272,
+        "n_rows": 508878,
+        "columns": [
+          "rating",
+          "title",
+          "text",
+          "images",
+          "asin",
+          "parent_asin",
+          "user_id",
+          "timestamp",
+          "helpful_vote",
+          "verified_purchase"
+        ],
+        "n_cols": 10
+      }
+    },
+    {
+      "name": "active_post_split_union",
+      "stage": "post_split",
+      "variant": "active",
+      "role": "interactions",
+      "kind": "union",
+      "paths": [
+        "data/processed/sample-active-users/splits/train.parquet",
+        "data/processed/sample-active-users/splits/test.parquet"
+      ],
+      "exists": true,
+      "format": "parquet_union",
+      "size_bytes": 319440598,
+      "n_rows": 497931,
+      "n_cols": 10,
+      "columns": [
+        "asin",
+        "helpful_vote",
+        "images",
+        "parent_asin",
+        "rating",
+        "text",
+        "timestamp",
+        "title",
+        "user_id",
+        "verified_purchase"
+      ],
+      "details": {
+        "exists": true,
+        "format": "parquet_union",
+        "size_bytes": 319440598,
+        "n_rows": 497931,
+        "columns": [
+          "asin",
+          "helpful_vote",
+          "images",
+          "parent_asin",
+          "rating",
+          "text",
+          "timestamp",
+          "title",
+          "user_id",
+          "verified_purchase"
+        ],
+        "n_cols": 10,
+        "parts": {
+          "train": {
+            "exists": true,
+            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/splits/train.parquet",
+            "format": "parquet",
+            "size_bytes": 257511434,
+            "n_rows": 404849,
+            "columns": [
+              "rating",
+              "title",
+              "text",
+              "images",
+              "asin",
+              "parent_asin",
+              "user_id",
+              "timestamp",
+              "helpful_vote",
+              "verified_purchase"
+            ],
+            "n_cols": 10
+          },
+          "test": {
+            "exists": true,
+            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/splits/test.parquet",
+            "format": "parquet",
+            "size_bytes": 61929164,
+            "n_rows": 93082,
+            "columns": [
+              "rating",
+              "title",
+              "text",
+              "images",
+              "asin",
+              "parent_asin",
+              "user_id",
+              "timestamp",
+              "helpful_vote",
+              "verified_purchase"
+            ],
+            "n_cols": 10
+          }
+        },
+        "columns_intersection": [
+          "asin",
+          "helpful_vote",
+          "images",
+          "parent_asin",
+          "rating",
+          "text",
+          "timestamp",
+          "title",
+          "user_id",
+          "verified_purchase"
+        ],
+        "columns_train_only": [],
+        "columns_test_only": []
+      }
+    },
+    {
+      "name": "temporal_pre_split",
+      "stage": "pre_split",
+      "variant": "temporal",
+      "role": "interactions",
+      "kind": "single",
+      "paths": [
+        "data/processed/sample-temporal/temporal_filtered.parquet"
+      ],
+      "exists": true,
+      "format": "parquet",
+      "size_bytes": 138036503,
+      "n_rows": 289949,
+      "n_cols": 9,
+      "columns": [
+        "rating",
+        "title",
+        "text",
+        "asin",
+        "parent_asin",
+        "user_id",
+        "timestamp",
+        "helpful_vote",
+        "verified_purchase"
+      ],
+      "details": {
+        "exists": true,
+        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/temporal_filtered.parquet",
+        "format": "parquet",
+        "size_bytes": 138036503,
+        "n_rows": 289949,
+        "columns": [
+          "rating",
+          "title",
+          "text",
+          "asin",
+          "parent_asin",
+          "user_id",
+          "timestamp",
+          "helpful_vote",
+          "verified_purchase"
+        ],
+        "n_cols": 9
+      }
+    },
+    {
+      "name": "temporal_post_split_union",
+      "stage": "post_split",
+      "variant": "temporal",
+      "role": "interactions",
+      "kind": "union",
+      "paths": [
+        "data/processed/sample-temporal/splits/train.parquet",
+        "data/processed/sample-temporal/splits/test.parquet"
+      ],
+      "exists": true,
+      "format": "parquet_union",
+      "size_bytes": 138832248,
+      "n_rows": 285521,
+      "n_cols": 9,
+      "columns": [
+        "asin",
+        "helpful_vote",
+        "parent_asin",
+        "rating",
+        "text",
+        "timestamp",
+        "title",
+        "user_id",
+        "verified_purchase"
+      ],
+      "details": {
+        "exists": true,
+        "format": "parquet_union",
+        "size_bytes": 138832248,
+        "n_rows": 285521,
+        "columns": [
+          "asin",
+          "helpful_vote",
+          "parent_asin",
+          "rating",
+          "text",
+          "timestamp",
+          "title",
+          "user_id",
+          "verified_purchase"
+        ],
+        "n_cols": 9,
+        "parts": {
+          "train": {
+            "exists": true,
+            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/splits/train.parquet",
+            "format": "parquet",
+            "size_bytes": 111971246,
+            "n_rows": 232437,
+            "columns": [
+              "rating",
+              "title",
+              "text",
+              "asin",
+              "parent_asin",
+              "user_id",
+              "timestamp",
+              "helpful_vote",
+              "verified_purchase"
+            ],
+            "n_cols": 9
+          },
+          "test": {
+            "exists": true,
+            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/splits/test.parquet",
+            "format": "parquet",
+            "size_bytes": 26861002,
+            "n_rows": 53084,
+            "columns": [
+              "rating",
+              "title",
+              "text",
+              "asin",
+              "parent_asin",
+              "user_id",
+              "timestamp",
+              "helpful_vote",
+              "verified_purchase"
+            ],
+            "n_cols": 9
+          }
+        },
+        "columns_intersection": [
+          "asin",
+          "helpful_vote",
+          "parent_asin",
+          "rating",
+          "text",
+          "timestamp",
+          "title",
+          "user_id",
+          "verified_purchase"
+        ],
+        "columns_train_only": [],
+        "columns_test_only": []
+      }
+    },
+    {
+      "name": "metadata",
+      "stage": "raw",
+      "variant": "meta_books",
+      "role": "metadata",
+      "kind": "single",
+      "paths": [
+        "data/raw/parquet/meta_Books.parquet"
+      ],
+      "exists": true,
+      "format": "parquet",
+      "size_bytes": 4696897350,
+      "n_rows": 4448181,
+      "n_cols": 16,
+      "columns": [
+        "main_category",
+        "title",
+        "subtitle",
+        "author",
+        "average_rating",
+        "rating_number",
+        "features",
+        "description",
+        "price",
+        "images",
+        "videos",
+        "store",
+        "categories",
+        "details",
+        "parent_asin",
+        "bought_together"
+      ],
+      "details": {
+        "exists": true,
+        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/raw/parquet/meta_Books.parquet",
+        "format": "parquet",
+        "size_bytes": 4696897350,
+        "n_rows": 4448181,
+        "columns": [
+          "main_category",
+          "title",
+          "subtitle",
+          "author",
+          "average_rating",
+          "rating_number",
+          "features",
+          "description",
+          "price",
+          "images",
+          "videos",
+          "store",
+          "categories",
+          "details",
+          "parent_asin",
+          "bought_together"
+        ],
+        "n_cols": 16
+      }
+    },
+    {
+      "name": "books_reviews_raw",
+      "stage": "raw",
+      "variant": "books",
+      "role": "optional_debug",
+      "kind": "single",
+      "paths": [
+        "data/raw/parquet/Books.parquet"
+      ],
+      "exists": true,
+      "format": "parquet",
+      "size_bytes": 5736672372,
+      "n_rows": 29475453,
+      "n_cols": 10,
+      "columns": [
+        "rating",
+        "title",
+        "text",
+        "images",
+        "asin",
+        "parent_asin",
+        "user_id",
+        "timestamp",
+        "helpful_vote",
+        "verified_purchase"
+      ],
+      "details": {
+        "exists": true,
+        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/raw/parquet/Books.parquet",
+        "format": "parquet",
+        "size_bytes": 5736672372,
+        "n_rows": 29475453,
+        "columns": [
+          "rating",
+          "title",
+          "text",
+          "images",
+          "asin",
+          "parent_asin",
+          "user_id",
+          "timestamp",
+          "helpful_vote",
+          "verified_purchase"
+        ],
+        "n_cols": 10
+      }
+    }
+  ],
+  "schema_checks": {
+    "active_pre_split": {
+      "target": "active_pre_split",
+      "stage": "pre_split",
+      "variant": "active",
+      "role": "interactions",
+      "ok": true,
+      "required_columns": {
+        "required": [
+          "parent_asin",
+          "timestamp",
+          "user_id"
+        ],
+        "missing_required": [],
+        "ok": true
+      },
+      "coercion": {
+        "coercion_applied": true,
+        "warning": null,
+        "changed_non_null_values": 0,
+        "non_null_before": 508878,
+        "non_null_after": 508878
+      },
+      "missing_keys": {
+        "missing_parent_asin_count": 0,
+        "missing_parent_asin_pct": 0.0,
+        "n_rows": 508878
+      },
+      "warnings": []
+    },
+    "active_post_split_union": {
+      "target": "active_post_split_union",
+      "stage": "post_split",
+      "variant": "active",
+      "role": "interactions",
+      "ok": true,
+      "required_columns": {
+        "required": [
+          "parent_asin",
+          "timestamp",
+          "user_id"
+        ],
+        "missing_required": [],
+        "ok": true
+      },
+      "coercion": {
+        "coercion_applied": true,
+        "warning": null,
+        "changed_non_null_values": 0,
+        "non_null_before": 497931,
+        "non_null_after": 497931
+      },
+      "missing_keys": {
+        "missing_parent_asin_count": 0,
+        "missing_parent_asin_pct": 0.0,
+        "n_rows": 497931
+      },
+      "warnings": []
+    },
+    "temporal_pre_split": {
+      "target": "temporal_pre_split",
+      "stage": "pre_split",
+      "variant": "temporal",
+      "role": "interactions",
+      "ok": true,
+      "required_columns": {
+        "required": [
+          "parent_asin",
+          "timestamp",
+          "user_id"
+        ],
+        "missing_required": [],
+        "ok": true
+      },
+      "coercion": {
+        "coercion_applied": true,
+        "warning": null,
+        "changed_non_null_values": 0,
+        "non_null_before": 289949,
+        "non_null_after": 289949
+      },
+      "missing_keys": {
+        "missing_parent_asin_count": 0,
+        "missing_parent_asin_pct": 0.0,
+        "n_rows": 289949
+      },
+      "warnings": []
+    },
+    "temporal_post_split_union": {
+      "target": "temporal_post_split_union",
+      "stage": "post_split",
+      "variant": "temporal",
+      "role": "interactions",
+      "ok": true,
+      "required_columns": {
+        "required": [
+          "parent_asin",
+          "timestamp",
+          "user_id"
+        ],
+        "missing_required": [],
+        "ok": true
+      },
+      "coercion": {
+        "coercion_applied": true,
+        "warning": null,
+        "changed_non_null_values": 0,
+        "non_null_before": 285521,
+        "non_null_after": 285521
+      },
+      "missing_keys": {
+        "missing_parent_asin_count": 0,
+        "missing_parent_asin_pct": 0.0,
+        "n_rows": 285521
+      },
+      "warnings": []
+    },
+    "metadata": {
+      "target": "metadata",
+      "stage": "raw",
+      "variant": "meta_books",
+      "role": "metadata",
+      "ok": true,
+      "required_columns": {
+        "required": [
+          "parent_asin"
+        ],
+        "missing_required": [],
+        "ok": true
+      },
+      "coercion": {
+        "coercion_applied": true,
+        "warning": null,
+        "changed_non_null_values": 0,
+        "non_null_before": 4448181,
+        "non_null_after": 4448181
+      },
+      "missing_keys": {
+        "missing_parent_asin_count": 0,
+        "missing_parent_asin_pct": 0.0,
+        "n_rows": 4448181
+      },
+      "warnings": []
+    },
+    "books_reviews_raw": {
+      "target": "books_reviews_raw",
+      "stage": "raw",
+      "variant": "books",
+      "role": "optional_debug",
+      "ok": true,
+      "required_columns": {
+        "required": [],
+        "missing_required": [],
+        "ok": true
+      },
+      "coercion": {
+        "coercion_applied": true,
+        "warning": null,
+        "changed_non_null_values": 0,
+        "non_null_before": 29475453,
+        "non_null_after": 29475453
+      },
+      "missing_keys": {
+        "missing_parent_asin_count": 0,
+        "missing_parent_asin_pct": 0.0,
+        "n_rows": 29475453
+      },
+      "warnings": []
+    }
+  }
+}
