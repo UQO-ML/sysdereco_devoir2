@@ -46,6 +46,7 @@ METADATA_LIST_COLS = ["features", "description", "categories"]
 METADATA_STRUCT_COLS = ["average_rating", "rating_number", "price"]
 METADATA_NESTED_COLS = ["author", "details"]
 
+
 METADATA_TEXT_COLS = METADATA_SCALAR_COLS + METADATA_LIST_COLS + METADATA_NESTED_COLS
 
 REQUIRED_INTERACTION_COLS = {"user_id", "parent_asin", "rating", "timestamp"}
