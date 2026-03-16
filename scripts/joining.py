@@ -976,7 +976,7 @@ def save_diagnostics(
         lines.append(f"- cols: `{s.get('n_cols')}`")
         lines.append(f"- size_bytes: `{s.get('size_bytes')}`")
         lines.append(f"- paths: `{s.get('paths')}`")
-        lines.append(f"- columns names: '{s.get('columns')}")
+        lines.append(f"- columns names: `{s.get('columns')}`")
         lines.append("")
 
     # ---------------------------------------------------------------
@@ -1010,19 +1010,7 @@ def save_diagnostics(
         if "parent_asin_duplicates" in dc:
             lines.append(f"- doublons parent_asin: `{dc.get('parent_asin_duplicates')}` ({dc.get('parent_asin_duplicates_pct')}%)")
         lines.append("")
-
-    lines.append("## C2. Détection de doublons")
-    lines.append("")
-    dup_checks = result.get("duplicate_checks", {})
-    for name, dc in dup_checks.items():
-        lines.append(f"### {name}")
-        lines.append(f"- n_rows: `{dc.get('n_rows')}`")
-        lines.append(f"- doublons exacts: `{dc.get('exact_duplicates')}` ({dc.get('exact_duplicates_pct')}%)")
-        if "user_item_duplicates" in dc:
-            lines.append(f"- doublons (user_id, parent_asin): `{dc.get('user_item_duplicates')}` ({dc.get('user_item_duplicates_pct')}%)")
-        if "parent_asin_duplicates" in dc:
-            lines.append(f"- doublons parent_asin: `{dc.get('parent_asin_duplicates')}` ({dc.get('parent_asin_duplicates_pct')}%)")
-        lines.append("")
+        
         
     # ---------------------------------------------------------------
     # D) Qualité de jointure interactions ↔ metadata
@@ -1294,7 +1282,15 @@ def run_all(
 
         # 3) missing values report + strategy on Raw Parquet
         cols_to_check = ["parent_asin"] + ex["metadata_text_kept"] + ex["metadata_struct_kept"]
-        miss = missingness_report(meta_df, cols_to_check)
+
+        if "meta_missingness_full" not in locals():
+            meta_missingness_full = missingness_report(meta_df, list(meta_df.columns))
+        if isinstance(meta_missingness_full, pd.DataFrame):
+            available_cols = [c for c in cols_to_check if c in meta_missingness_full.index]
+            miss = meta_missingness_full.loc[available_cols]
+        else:
+            miss = missingness_report(meta_df, cols_to_check)
+
         miss = attach_missingness_strategy(miss)
         missingness[name] = miss
 
@@ -1347,6 +1343,7 @@ def run_all(
         "column_purpose": {
             "content_representation": CONTENT_REPRESENTATION_COLS,
             "learning_features": LEARNING_FEATURE_COLS,
+        },
     }
     result["p1_reuse_note"] = build_p1_reuse_note(manifest, result["sources"])
 
