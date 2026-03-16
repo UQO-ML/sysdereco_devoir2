@@ -95,6 +95,44 @@ LEARNING_FEATURE_COLS = {
     "details_language": "Variable catégorielle — langue",
     "author_name": "Variable catégorielle — auteur (partagé avec contenu)",
 }
+MISSINGNESS_JUSTIFICATIONS: Dict[str, str] = {
+    "parent_asin": "Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable.",
+    "user_id": "Clé primaire interactions — ligne non identifiable sans user_id.",
+    "timestamp": "Nécessaire au split temporel train/test — ligne inutilisable sans date.",
+    "rating": "Variable cible du système de recommandation — ligne sans note exclue.",
+    "title": "Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description.",
+    "subtitle": "Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation.",
+    "description": "Contenu sémantique riche pour content-based filtering ; vide tolérable car compensé par title+features.",
+    "categories": "Taxonomie Amazon pour filtrage par genre ; vide tolérable, données complémentaires.",
+    "features": "Points clés marketing ; vide tolérable, données complémentaires au content-based.",
+    "author": "Structure imbriquée → extraction de author_name ; vide si auteur inconnu, impact limité.",
+    "details": "Structure imbriquée → publisher/language ; vide tolérable, attributs secondaires.",
+    "author_name": "Extrait de struct author ; vide si auteur inconnu, impact limité.",
+    "details_publisher": "Extrait de struct details ; vide tolérable, attribut catégoriel secondaire.",
+    "details_language": "Extrait de struct details ; vide tolérable, quasi-constant ('English').",
+    "average_rating": "Signal de popularité agrégé ; NaN rare, imputation non nécessaire sauf si >5%.",
+    "rating_number": "Volume de notes ; NaN rare, indicateur de confiance secondaire.",
+    "price": "Distribution asymétrique, ~24% manquant → médiane plus robuste que la moyenne.",
+}
+
+COLUMN_TYPE_MAP: Dict[str, str] = {}
+for _c in INTERACTION_MIN_COLS:
+    COLUMN_TYPE_MAP[_c] = "numérique" if _c in ("rating", "timestamp") else "clé (identifiant)"
+for _c in METADATA_SCALAR_COLS:
+    COLUMN_TYPE_MAP[_c] = "textuelle (scalaire)"
+for _c in METADATA_LIST_COLS:
+    COLUMN_TYPE_MAP[_c] = "textuelle (liste)"
+for _c in METADATA_NESTED_COLS:
+    COLUMN_TYPE_MAP[_c] = "catégorielle (struct imbriqué)"
+for _c in METADATA_STRUCT_COLS:
+    COLUMN_TYPE_MAP[_c] = "numérique"
+# Colonnes post-normalisation dérivées de structs
+COLUMN_TYPE_MAP["author_name"] = "catégorielle (extraite de struct)"
+COLUMN_TYPE_MAP["details_publisher"] = "catégorielle (extraite de struct)"
+COLUMN_TYPE_MAP["details_language"] = "catégorielle (extraite de struct)"
+
+
+
 
 
 def _required_cols_for_role(
@@ -427,6 +465,7 @@ def attach_missingness_strategy(
 
     for r in report_rows:
         col = r["column"]
+        r["column_type"] = COLUMN_TYPE_MAP.get(col, "autre")
         if r["missing_pct"] is None:
             r["strategy"] = "colonne absente"
         elif col in key_cols:
@@ -439,10 +478,12 @@ def attach_missingness_strategy(
             r["strategy"] = "aplatir struct (extraire champ clé en string)"
         elif col in numeric_cols:
             r["strategy"] = "imputation médiane (ou exclusion si trop manquant)"
+        elif col == "rating":
+            r["strategy"] = "supprimer lignes incomplètes (variable cible)"
         else:
             r["strategy"] = "au cas par cas / hors périmètre"
+        r["justification"] = MISSINGNESS_JUSTIFICATIONS.get(col, "—")
     return report_rows
-
 
 
 
@@ -1066,43 +1107,47 @@ def save_diagnostics(
     missingness = result.get("missingness", {})
     for name, miss_data in missingness.items():
         lines.append(f"### {name}")
-        if isinstance(miss_data, dict) and "on_meta_global" in miss_data:
-            for scope, rows in miss_data.items():
-                scope_label = "Meta global (4.4M)" if scope == "on_meta_global" else "Sous-ensemble joint"
-                lines.append(f"#### {scope_label}")
+        lines.append("")
+        if isinstance(miss_data, dict) and ("on_meta_global" in miss_data or "on_interactions_raw" in miss_data):
+            scope_order = ["on_interactions_raw", "on_meta_global", "on_joined_subset"]
+            scope_labels = {
+                "on_interactions_raw": "Interactions brutes",
+                "on_meta_global": "Métadonnées globales",
+                "on_joined_subset": "Sous-ensemble joint",
+            }
+            for scope in scope_order:
+                rows = miss_data.get(scope)
+                if not rows:
+                    continue
+                lines.append(f"#### {scope_labels.get(scope, scope)}")
+                lines.append("")
+                lines.append("| colonne | type | % NaN | % vide | % effectif | stratégie | justification |")
+                lines.append("|---------|------|-------|--------|------------|-----------|---------------|")
                 for r in rows:
-                    eff = r.get("effective_missing_pct", r.get("missing_pct"))
+                    col = r.get("column", "?")
+                    ctype = r.get("column_type", "—")
+                    nan_pct = r.get("missing_pct")
+                    empty_pct = r.get("empty_pct")
+                    eff_pct = r.get("effective_missing_pct", nan_pct)
+                    strat = r.get("strategy", "—")
+                    justif = r.get("justification", "—")
                     lines.append(
-                        f"- {r['column']}: NaN=`{r.get('missing_pct')}%`, "
-                        f"vide=`{r.get('empty_pct', 'N/A')}%`, "
-                        f"effectif=`{eff}%`, "
-                        f"strategy=`{r.get('strategy')}`"
+                        f"| {col} | {ctype} | "
+                        f"{nan_pct if nan_pct is not None else 'N/A'}% | "
+                        f"{empty_pct if empty_pct is not None else 'N/A'}% | "
+                        f"{eff_pct if eff_pct is not None else 'N/A'}% | "
+                        f"{strat} | {justif} |"
                     )
                 lines.append("")
         else:
-            # rétrocompatibilité format liste
+            lines.append("| colonne | % NaN | stratégie |")
+            lines.append("|---------|-------|-----------|")
             for r in miss_data:
                 lines.append(
-                    f"- {r['column']}: missing=`{r.get('missing_pct')}%` | {r.get('strategy')}"
+                    f"| {r['column']} | {r.get('missing_pct')}% | {r.get('strategy')} |"
                 )
+            lines.append("")
     lines.append("")
-    lines.append("## F2. Qualité des champs textuels")
-    lines.append("")
-    tq = result.get("text_quality", {})
-    for name, cols_report in tq.items():
-        lines.append(f"### {name}")
-        for r in cols_report:
-            if not r.get("present"):
-                lines.append(f"- {r.get('column')}: absent")
-                continue
-            lines.append(
-                f"- {r.get('column')}: "
-                f"avg_len=`{r.get('avg_length')}`, "
-                f"median_len=`{r.get('median_length')}`, "
-                f"vides=`{r.get('empty_or_blank_count')}` ({r.get('empty_or_blank_pct')}%), "
-                f"HTML=`{r.get('html_noise_count')}` ({r.get('html_noise_pct')}%)"
-            )
-        lines.append("")
 
     # ---------------------------------------------------------------
     # G) Datasets finaux produits
@@ -1255,10 +1300,11 @@ def run_all(
 
         inter_df = load_target_df(cfg, columns=inter_cols, verbose=verbose)
 
-        # duplicates
         duplicate_checks[name] = check_duplicates(inter_df, role="interactions")
 
-        # rating + timestamp validation
+        miss_inter_raw = missingness_report(inter_df, inter_cols)
+        miss_inter_raw = attach_missingness_strategy(miss_inter_raw)
+
         validation_checks[name] = {
             "rating": validate_rating_range(inter_df),
             "timestamp": validate_timestamp(inter_df),
@@ -1313,6 +1359,7 @@ def run_all(
         miss_joined = missingness_report(joined_df, list(joined_df.columns))
         miss_joined = attach_missingness_strategy(miss_joined)
         missingness[name] = {
+            "on_interactions_raw": miss_inter_raw,
             "on_meta_global": miss,
             "on_joined_subset": miss_joined,
         }
@@ -1540,26 +1587,38 @@ def cli_print_results(
                 print(f"        - {col}: {reason}")
 
     # ------------------------------------------------------------------
-    # 5) Valeurs manquantes (global + sous-ensemble joint)
+    # 5) Valeurs manquantes (interactions brutes + meta global + joint)
     # ------------------------------------------------------------------
     print("\n[5] Valeurs manquantes et stratégie")
     miss = result.get("missingness", {})
     for name in sorted(miss.keys()):
         miss_data = miss[name]
         print(f"  • {name}")
-        if isinstance(miss_data, dict) and "on_meta_global" in miss_data:
-            for scope, rows in miss_data.items():
-                label = "Meta global (4.4M)" if scope == "on_meta_global" else "Sous-ensemble joint"
-                print(f"      [{label}]")
+        if isinstance(miss_data, dict) and ("on_meta_global" in miss_data or "on_interactions_raw" in miss_data):
+            scope_order = ["on_interactions_raw", "on_meta_global", "on_joined_subset"]
+            scope_labels = {
+                "on_interactions_raw": "Interactions brutes",
+                "on_meta_global": "Meta global",
+                "on_joined_subset": "Sous-ensemble joint",
+            }
+            for scope in scope_order:
+                rows = miss_data.get(scope)
+                if not rows:
+                    continue
+                print(f"      [{scope_labels.get(scope, scope)}]")
                 for r in rows:
                     eff = r.get("effective_missing_pct")
                     eff_str = f", effectif={eff}%" if eff is not None else ""
                     empty = r.get("empty_count")
                     empty_str = f", vides={_fmt_num(empty)}" if empty is not None else ""
+                    ctype = r.get("column_type", "")
+                    type_str = f" [{ctype}]" if ctype else ""
+                    justif = r.get("justification", "")
+                    justif_str = f" — {justif}" if justif and justif != "—" else ""
                     print(
-                        f"        - {r.get('column')}: "
+                        f"        - {r.get('column')}{type_str}: "
                         f"NaN={r.get('missing_pct')}%{empty_str}{eff_str} "
-                        f"| {r.get('strategy')}"
+                        f"| {r.get('strategy')}{justif_str}"
                     )
         else:
             for r in miss_data:
