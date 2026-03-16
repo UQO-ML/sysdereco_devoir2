@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from datetime import datetime
+
 import gc
 import json
 import os
 import time
+import re
 
 import pandas as pd
 import pyarrow.parquet as pq
 
-import re
 
 
 
@@ -373,9 +374,10 @@ def load_target_df(
 
     if verbose:
         print(
-            f"\nload_target_df \n"
-            f"kind: {kind}, paths: {paths} \n"
-            f"columns: {columns} \n"
+            "\nload_target_df()",
+            f"kind: {kind}\n",
+            f"paths: {paths}\n"
+            f"columns: {columns} \n",
         )
     if kind == "single":
         return pd.read_parquet(paths[0], columns=columns, 
@@ -396,7 +398,10 @@ def load_target_df(
 
 
 
-def check_required_columns(df: pd.DataFrame, required_cols: set[str]) -> Dict[str, Any]:
+def check_required_columns(
+    df: pd.DataFrame, 
+    required_cols: set[str]
+) -> Dict[str, Any]:
     present = set(df.columns)
     missing = sorted(required_cols - present)
     return {
@@ -553,7 +558,10 @@ def check_duplicates(
     role: str,
 ) -> Dict[str, Any]:
     n = len(df)
-    exact_dups = int(df.duplicated().sum())
+    
+    hashable_cols = [c for c in df.columns
+                    if df[c].dropna().apply(lambda v: isinstance(v, (str, int, float, bool))).all()]
+    exact_dups = int(df[hashable_cols].duplicated().sum()) if hashable_cols else 0
 
     result: Dict[str, Any] = {
         "n_rows": n,
@@ -937,23 +945,26 @@ def build_joined_dataset(
 ) -> pd.DataFrame:
 
     if verbose:
-        print("\nbuild_joined_dataset")
+        print("\nbuild_joined_dataset()")
     inter_df = inter_df.copy()
     inter_df["parent_asin"] = inter_df["parent_asin"].astype("string")
     if verbose:
-        print(f"\nlen(inter_df.columns): {len(inter_df.columns)}\n"
-            f"inter_df.columns: {inter_df.columns}")
+        print(
+            f"len(inter_df.columns): {len(inter_df.columns)}\n"
+            f"inter_df.columns: {inter_df.columns}"
+        )
 
 
     keep = ["parent_asin"] + [c for c in meta_keep_cols if c in meta_df.columns]
     if verbose:
-        print(f"\nlen(keep): {len(keep)}\n")
-        print(f"keep: {keep}")
+        print(
+            f"len(keep): {len(keep)}\n"
+            f"keep: {keep}")
     
     meta_slim = meta_df[keep].drop_duplicates(subset=["parent_asin"], keep="first")
     if verbose:
         print(
-            f"\nlen(meta_slim.columns): {len(meta_slim.columns)}\n"
+            f"len(meta_slim.columns): {len(meta_slim.columns)}\n"
             f"meta_slim.columns: {meta_slim.columns}\n"
         )
     
@@ -967,6 +978,98 @@ def build_joined_dataset(
     return joined
 
 
+
+
+def clean_joined_dataset(
+    df: pd.DataFrame,
+    verbose: bool = True,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Nettoie le dataset joint : suppression NaN sur clés, dédoublonnage interactions.
+
+    Returns
+    -------
+    (cleaned_df, cleaning_report)
+    """
+    print("\nclean_joined_dataset()")
+    n_before = len(df)
+    items_before = df["parent_asin"].nunique()
+    users_before = df["user_id"].nunique() if "user_id" in df.columns else None
+
+    drop_reasons: Dict[str, int] = {}
+
+    # 1) Supprimer les lignes avec NaN sur les colonnes clés
+    key_cols = [c for c in ["user_id", "parent_asin", "rating", "timestamp"] if c in df.columns]
+    before_key_drop = len(df)
+    df = df.dropna(subset=key_cols).copy()
+    drop_reasons["missing_key_cols"] = before_key_drop - len(df)
+
+    # 2) Dédoublonner les interactions (garder la plus récente par timestamp)
+    dedup_subset = ["user_id", "parent_asin"]
+    if all(c in df.columns for c in dedup_subset):
+        before_dedup = len(df)
+        sort_col = "timestamp" if "timestamp" in df.columns else None
+        if sort_col is not None:
+            df = df.sort_values(sort_col, ascending=False)
+        df = df.drop_duplicates(subset=dedup_subset, keep="first")
+        drop_reasons["interaction_duplicates"] = before_dedup - len(df)
+
+    n_after = len(df)
+    items_after = df["parent_asin"].nunique()
+    users_after = df["user_id"].nunique() if "user_id" in df.columns else None
+
+    report = {
+        "before": {"n_rows": n_before, "n_items": items_before, "n_users": users_before},
+        "after":  {"n_rows": n_after,  "n_items": items_after,  "n_users": users_after},
+        "dropped_rows": n_before - n_after,
+        "dropped_reason": drop_reasons,
+    }
+
+    if verbose:
+        print(
+            f"[clean] {n_before} → {n_after} lignes "
+              f"(−{n_before - n_after}: keys={drop_reasons.get('missing_key_cols', 0)}, "
+              f"dups={drop_reasons.get('interaction_duplicates', 0)})\n")
+
+    return df, report
+
+
+
+
+def post_cleaning_checks(
+    df: pd.DataFrame,
+    items_before: set,
+) -> Dict[str, Any]:
+    """Vérifications de cohérence après nettoyage."""
+    checks: Dict[str, Any] = {}
+
+    # a) Doublons résiduels (user_id, parent_asin)
+    if "user_id" in df.columns and "parent_asin" in df.columns:
+        residual_dups = int(df.duplicated(subset=["user_id", "parent_asin"]).sum())
+        checks["residual_pair_duplicates"] = residual_dups
+        checks["residual_pair_duplicates_ok"] = residual_dups == 0
+
+    # b) Distribution rating inchangée / pas d'aberrations
+    if "rating" in df.columns:
+        checks["rating_post_clean"] = validate_rating_range(df)
+
+    # c) Vérifier que pas de parent_asin critique perdu
+    items_after = set(df["parent_asin"].dropna().unique())
+    lost_items = items_before - items_after
+    checks["parent_asin_integrity"] = {
+        "items_before": len(items_before),
+        "items_after": len(items_after),
+        "items_lost": len(lost_items),
+        "items_lost_pct": round(len(lost_items) / len(items_before) * 100, 4) if items_before else 0.0,
+        "ok": len(lost_items) == 0,
+    }
+
+    # d) NaN résiduel sur clés (devrait être 0)
+    key_cols = [c for c in ["user_id", "parent_asin", "rating", "timestamp"] if c in df.columns]
+    residual_na = {c: int(df[c].isna().sum()) for c in key_cols}
+    checks["residual_key_nan"] = residual_na
+    checks["residual_key_nan_ok"] = all(v == 0 for v in residual_na.values())
+
+    return checks
 
 
 
@@ -1019,6 +1122,12 @@ def save_diagnostics(
         lines.append(f"- paths: `{s.get('paths')}`")
         lines.append(f"- columns names: `{s.get('columns')}`")
         lines.append("")
+    lines.append("")
+    finals = result.get("final_datasets", {})
+    for name, f in finals.items():
+        lines.append(f"### {name}")
+        lines.append(f"- chemin de sauvegarde: `{f.get('path')}`")
+        lines.append("")
 
     # ---------------------------------------------------------------
     # C) Vérifications schéma et clés
@@ -1052,7 +1161,27 @@ def save_diagnostics(
             lines.append(f"- doublons parent_asin: `{dc.get('parent_asin_duplicates')}` ({dc.get('parent_asin_duplicates_pct')}%)")
         lines.append("")
         
-        
+    lines.append("## C3. Validation des valeurs (rating, timestamp)")
+    lines.append("")
+    val_checks = result.get("validation_checks", {})
+    for name, vc in val_checks.items():
+        lines.append(f"### {name}")
+        rt = vc.get("rating", {})
+        if rt.get("present"):
+            lines.append(f"- rating: min=`{rt.get('min')}`, max=`{rt.get('max')}`, "
+                         f"mean=`{rt.get('mean')}`, median=`{rt.get('median')}`, "
+                         f"hors intervalle=`{rt.get('out_of_range_count')}` ({rt.get('out_of_range_pct')}%), "
+                         f"ok=`{rt.get('ok')}`")
+        ts = vc.get("timestamp", {})
+        if ts.get("present"):
+            lines.append(f"- timestamp: dtype=`{ts.get('dtype')}`, "
+                         f"min=`{ts.get('min_date', 'N/A')}`, max=`{ts.get('max_date', 'N/A')}`, "
+                         f"non convertibles=`{ts.get('unconvertible_count', 0)}`, "
+                         f"ok=`{ts.get('ok')}`")
+            for w in ts.get("warnings", []):
+                lines.append(f"  -   {w}")
+        lines.append("")
+
     # ---------------------------------------------------------------
     # D) Qualité de jointure interactions ↔ metadata
     # ---------------------------------------------------------------
@@ -1150,6 +1279,86 @@ def save_diagnostics(
     lines.append("")
 
     # ---------------------------------------------------------------
+    # F2) Qualité des champs textuels
+    # ---------------------------------------------------------------
+    lines.append("## F2. Qualité des champs textuels")
+    lines.append("")
+    tq = result.get("text_quality", {})
+    for name, cols_report in tq.items():
+        lines.append(f"### {name}")
+        for r in cols_report:
+            if not r.get("present"):
+                lines.append(f"- {r.get('column')}: absent")
+                continue
+            lines.append(
+                f"- {r.get('column')}: "
+                f"avg_len=`{r.get('avg_length')}`, "
+                f"median_len=`{r.get('median_length')}`, "
+                f"vides=`{r.get('empty_or_blank_count')}` ({r.get('empty_or_blank_pct')}%), "
+                f"HTML=`{r.get('html_noise_count')}` ({r.get('html_noise_pct')}%)"
+            )
+        lines.append("")
+
+    # ---------------------------------------------------------------
+    # F3) Nettoyage appliqué (avant/après)
+    # ---------------------------------------------------------------
+    lines.append("## F3. Nettoyage appliqué (avant / après)")
+    lines.append("")
+    cleaning = result.get("cleaning_reports", {})
+    for name, rpt in cleaning.items():
+        lines.append(f"### {name}")
+        bef = rpt.get("before", {})
+        aft = rpt.get("after", {})
+        lines.append("")
+        lines.append("| métrique | avant | après | delta |")
+        lines.append("|----------|-------|-------|-------|")
+        for key, label in [("n_rows", "lignes"), ("n_items", "items"), ("n_users", "users")]:
+            b = bef.get(key)
+            a = aft.get(key)
+            delta = (b - a) if b is not None and a is not None else "N/A"
+            lines.append(f"| {label} | {b} | {a} | −{delta} |")
+        lines.append("")
+        reasons = rpt.get("dropped_reason", {})
+        if reasons:
+            lines.append("**Raisons de suppression :**")
+            for reason, count in reasons.items():
+                lines.append(f"- `{reason}`: {count} lignes")
+            lines.append("")
+
+    # ---------------------------------------------------------------
+    # F4) Vérifications post-nettoyage
+    # ---------------------------------------------------------------
+    lines.append("## F4. Vérifications post-nettoyage")
+    lines.append("")
+    post_checks = result.get("post_cleaning_checks", {})
+    for name, checks in post_checks.items():
+        lines.append(f"### {name}")
+        lines.append("")
+
+        res_dups = checks.get("residual_pair_duplicates", "N/A")
+        res_dups_ok = checks.get("residual_pair_duplicates_ok", None)
+        status = "OK" if res_dups_ok else "ALERTE"
+        lines.append(f"- Doublons résiduels `(user_id, parent_asin)`: **{res_dups}** — {status}")
+
+        rating_post = checks.get("rating_post_clean", {})
+        if rating_post.get("present"):
+            oor = rating_post.get("out_of_range_count", 0)
+            r_ok = "OK" if rating_post.get("ok") else f"ALERTE ({oor} hors [1,5])"
+            lines.append(f"- Distribution rating post-nettoyage: min={rating_post.get('min')}, "
+                         f"max={rating_post.get('max')}, mean={rating_post.get('mean')} — {r_ok}")
+
+        integrity = checks.get("parent_asin_integrity", {})
+        lost = integrity.get("items_lost", 0)
+        i_ok = "OK" if integrity.get("ok") else f"ALERTE ({lost} items perdus, {integrity.get('items_lost_pct')}%)"
+        lines.append(f"- Intégrité parent_asin: {integrity.get('items_before')} → "
+                     f"{integrity.get('items_after')} items — {i_ok}")
+
+        key_na = checks.get("residual_key_nan", {})
+        key_ok = "OK" if checks.get("residual_key_nan_ok") else f"ALERTE {key_na}"
+        lines.append(f"- NaN résiduel sur clés: {key_na} — {key_ok}")
+        lines.append("")
+
+    # ---------------------------------------------------------------
     # G) Datasets finaux produits
     # ---------------------------------------------------------------
 
@@ -1205,17 +1414,16 @@ def save_joined_dataset(
 ) -> str:
     if verbose:
         print(
-            "\nsave_joined_dataset\n"
+            "\nsave_joined_dataset()\n",
             f"out_dir: {out_dir}\n",
-            f"len(df.columns): {len(df.columns)}\n"
-            f"df.columns: {df.columns}\n"
-            # f"df: {df}\n"
+            f"len(df.columns): {len(df.columns)}\n",
+            f"df.columns: {df.columns}"
         )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{name}_joined.parquet"
     if verbose:
-        print(f"\npath: {path}")
+        print(f"path: {path}")
 
     for col in df.columns:
         types = df[col].dropna().apply(type).value_counts()
@@ -1264,12 +1472,17 @@ def run_all(
     exploitable_cols = {}
     missingness = {}
     final_datasets = {}
+    cleaning_reports = {}
+    post_clean_checks = {}
 
     # metadata
     meta_cfg = manifest["metadata"]
     meta_cols = ["parent_asin"] + METADATA_TEXT_COLS + METADATA_STRUCT_COLS
     if verbose:
-        print(f"\nmeta_cols: {meta_cols}")
+        print(
+            f"\nrun_all()\n"
+            f"meta_cols: {meta_cols}\n"
+        )
     meta_df = load_target_df(meta_cfg, meta_cols, verbose=verbose)
     meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
     meta_key_set = set(meta_df["parent_asin"].dropna().unique().tolist())
@@ -1285,7 +1498,10 @@ def run_all(
         }
     inter_cols = INTERACTION_MIN_COLS   
     if verbose:
-        print(f"inter_cols: {inter_cols}")
+        print(
+            f"\nrun_all()\n"
+            f"inter_cols: {inter_cols}\n"
+        )
     for name, cfg in manifest.items():
         if cfg["role"] != "interactions":
             continue
@@ -1343,19 +1559,33 @@ def run_all(
         # 4) final joined dataset
         meta_keep = ex["metadata_text_kept"] + ex["metadata_struct_kept"]
         if verbose:
-            print(f"meta_keep: {meta_keep}")
+            print(
+                f"\nrun_all()\n"
+                f"meta_keep: {meta_keep}\n")
         joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep, verbose=verbose)
+
+        # 4b) text quality (avant nettoyage, sur données normalisées)
         text_cols_to_check = [c for c in ["title", "subtitle", "description",
             "categories", "features", "author_name",
             "details_publisher", "details_language"] if c in joined_df.columns]
         text_quality_checks[name] = text_quality_report(joined_df, text_cols_to_check)
+        
+        # 5) Nettoyage : suppression NaN clés + dédoublonnage interactions
+        items_before_clean = set(joined_df["parent_asin"].dropna().unique())
+        joined_df, cleaning_rpt = clean_joined_dataset(joined_df, verbose=verbose)
+        cleaning_reports[name] = cleaning_rpt
+
+        # 6) Vérifications post-nettoyage
+        post_clean_checks[name] = post_cleaning_checks(joined_df, items_before_clean)
 
         if verbose:
             print(
-                # f"\njoined_df: {joined_df}"
-                f"\nlen(joined_df.columns).: {len(joined_df.columns)}"
-                f"\njoined_df.columns: {joined_df.columns}"
+                "\nrun_all()\n"
+                f"len(joined_df.columns): {len(joined_df.columns)}\n"
+                f"joined_df.columns: {joined_df.columns}\n"
             )
+
+        # 7) Missingness sur dataset joint nettoyé
         miss_joined = missingness_report(joined_df, list(joined_df.columns))
         miss_joined = attach_missingness_strategy(miss_joined)
         missingness[name] = {
@@ -1363,9 +1593,10 @@ def run_all(
             "on_meta_global": miss,
             "on_joined_subset": miss_joined,
         }
+
         out_path = None
         if materialize_joined:
-            out_path = save_joined_dataset(joined_df, name=name, out_dir="data/joining", verbose=verbose)
+            out_path = save_joined_dataset(joined_df, name=name + "_clean", out_dir="data/joining", verbose=verbose)
         final_datasets[name] = {
             "path": out_path,
             "n_rows": len(joined_df),
@@ -1374,6 +1605,7 @@ def run_all(
 
         del inter_df, joined_df
         gc.collect()
+
 
     result: Dict[str, Any] = {
         "manifest": manifest,
@@ -1386,6 +1618,8 @@ def run_all(
         "exploitable_columns": exploitable_cols,
         "missingness": missingness,
         "text_quality": text_quality_checks,
+        "cleaning_reports": cleaning_reports,
+        "post_cleaning_checks": post_clean_checks,
         "final_datasets": final_datasets,
         "column_purpose": {
             "content_representation": CONTENT_REPRESENTATION_COLS,
@@ -1519,7 +1753,7 @@ def cli_print_results(
             print(f"      timestamp: {ts.get('min_date', 'N/A')} → {ts.get('max_date', 'N/A')}, "
                   f"dtype={ts.get('dtype')} → {status}")
             for w in ts.get("warnings", []):
-                print(f"        ⚠ {w}")
+                print(f"          {w}")
 
     # ------------------------------------------------------------------
     # 3) Qualité de jointure interactions ↔ metadata
@@ -1605,7 +1839,7 @@ def cli_print_results(
                 rows = miss_data.get(scope)
                 if not rows:
                     continue
-                print(f"      [{scope_labels.get(scope, scope)}]")
+                print(f"\n      [{scope_labels.get(scope, scope)}]")
                 for r in rows:
                     eff = r.get("effective_missing_pct")
                     eff_str = f", effectif={eff}%" if eff is not None else ""
@@ -1614,11 +1848,11 @@ def cli_print_results(
                     ctype = r.get("column_type", "")
                     type_str = f" [{ctype}]" if ctype else ""
                     justif = r.get("justification", "")
-                    justif_str = f" — {justif}" if justif and justif != "—" else ""
+                    justif_str = f"\n — {justif}" if justif and justif != "—" else ""
                     print(
                         f"        - {r.get('column')}{type_str}: "
                         f"NaN={r.get('missing_pct')}%{empty_str}{eff_str} "
-                        f"| {r.get('strategy')}{justif_str}"
+                        f"| {r.get('strategy')}{justif_str}\n",
                     )
         else:
             for r in miss_data:
@@ -1641,6 +1875,49 @@ def cli_print_results(
             print(f"      {r.get('column')}: avg_len={r.get('avg_length')}, "
                   f"median_len={r.get('median_length')}, "
                   f"vides={r.get('empty_or_blank_count')}{html_note}")
+
+    # ------------------------------------------------------------------
+    # 5c) Nettoyage appliqué
+    # ------------------------------------------------------------------
+    print("\n[5c] Nettoyage appliqué (avant / après)")
+    cleaning = result.get("cleaning_reports", {})
+    for name, rpt in cleaning.items():
+        bef = rpt.get("before", {})
+        aft = rpt.get("after", {})
+        print(f"  • {name}")
+        print(f"      lignes: {bef.get('n_rows')} → {aft.get('n_rows')} "
+              f"(−{rpt.get('dropped_rows', 0)})")
+        print(f"      items:  {bef.get('n_items')} → {aft.get('n_items')}")
+        print(f"      users:  {bef.get('n_users')} → {aft.get('n_users')}")
+        reasons = rpt.get("dropped_reason", {})
+        if reasons:
+            for reason, count in reasons.items():
+                print(f"        → {reason}: {count}")
+
+    # ------------------------------------------------------------------
+    # 5d) Vérifications post-nettoyage
+    # ------------------------------------------------------------------
+    print("\n[5d] Vérifications post-nettoyage")
+    post_checks = result.get("post_cleaning_checks", {})
+    for name, checks in post_checks.items():
+        print(f"  • {name}")
+        res_dups = checks.get("residual_pair_duplicates", "N/A")
+        ok_tag = "OK" if checks.get("residual_pair_duplicates_ok") else "ALERTE"
+        print(f"      doublons résiduels (user,item): {res_dups} — {ok_tag}")
+
+        rating_post = checks.get("rating_post_clean", {})
+        if rating_post.get("present"):
+            r_ok = "OK" if rating_post.get("ok") else "ALERTE"
+            print(f"      rating: [{rating_post.get('min')}, {rating_post.get('max')}] "
+                  f"mean={rating_post.get('mean')} — {r_ok}")
+
+        integrity = checks.get("parent_asin_integrity", {})
+        i_ok = "OK" if integrity.get("ok") else "ALERTE"
+        print(f"      parent_asin: {integrity.get('items_before')} → "
+              f"{integrity.get('items_after')} ({i_ok})")
+
+        key_ok = "OK" if checks.get("residual_key_nan_ok") else "ALERTE"
+        print(f"      NaN clés résiduels: {checks.get('residual_key_nan')} — {key_ok}")
 
     # ------------------------------------------------------------------
     # 6) Jeux finaux produits
