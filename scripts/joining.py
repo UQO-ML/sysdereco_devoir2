@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from datetime import datetime
-from typing import Tuple
 
 import gc
 import json
@@ -1280,7 +1279,7 @@ def save_diagnostics(
     lines.append("")
 
     # ---------------------------------------------------------------
-    # F2) Nettoyage appliqué (avant/après)
+    # F2) Qualité des champs textuels
     # ---------------------------------------------------------------
     lines.append("## F2. Qualité des champs textuels")
     lines.append("")
