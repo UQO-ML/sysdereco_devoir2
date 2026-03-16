@@ -64,7 +64,7 @@ def main():
                 except ImportError:
                     req_path = os.path.join(os.path.dirname(__file__), "..", "requirements-rapids.txt")
                     if os.path.isfile(req_path):
-                        print("  RAPIDS : manquants, installation…")
+                        print("  RAPIDS : manquants, installation...")
                         r = subprocess.run(
                             [sys.executable, "-m", "pip", "install", "-r", os.path.normpath(req_path)],
                             cwd=os.path.normpath(os.path.join(os.path.dirname(__file__), "..")),
@@ -89,9 +89,9 @@ def _platform_info():
     if plat == "Linux":
         return "Linux", True, "Compatible RAPIDS (NVIDIA GPU requis)"
     if plat == "Darwin":
-        return "macOS (Apple Silicon possible)", False, "RAPIDS non disponible — utiliser mode CPU (pandas) ou échantillons pré-générés"
+        return "macOS (Apple Silicon possible)", False, "RAPIDS non disponible - utiliser mode CPU (pandas) ou échantillons pré-générés"
     if plat == "Windows":
-        return "Windows", False, "RAPIDS non disponible en natif — utiliser mode CPU ou WSL2 + NVIDIA pour RAPIDS"
+        return "Windows", False, "RAPIDS non disponible en natif - utiliser mode CPU ou WSL2 + NVIDIA pour RAPIDS"
     return plat, False, "Plateforme non testée"
 
 if __name__ == "__main__":

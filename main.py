@@ -1,5 +1,5 @@
 """
-main.py — Orchestrateur complet du pipeline de préparation des données.
+main.py - Orchestrateur complet du pipeline de préparation des données.
 
 Exécute séquentiellement :
   1. Échantillonnage des utilisateurs actifs  (GPU si disponible, sinon CPU)
@@ -12,6 +12,7 @@ Usage : python main.py
 """
 
 import gc
+import os
 import time
 import sys
 
@@ -20,9 +21,12 @@ from scripts.precursor import (
     RAW_BOOKS_PATH,
     SAMPLE_ACTIVE_DIR,
     SAMPLE_TEMPORAL_DIR,
+    SAMPLE_GLOB_FILTERED,
     TARGET_YEARS,
+    RAW_META_PATH,
     # Dataset preparation (JSONL  to Parquet)
     jsonl_to_parquet_conversion,
+    resolve_glob,
     # GPU sampling
     sample_active_users_gpu,
     sample_temporal_gpu,
@@ -38,25 +42,81 @@ from scripts.precursor import (
     flush_gpu,
 )
 
+from scripts.joining import(
+    cli_print_md_results,
+    cli_print_results,
+    run_all
+    )
 
-def main():
+# import scripts.truc as truc
+
+
+def _final_files_checker() -> bool:
+
+    result = True
+    filtered_data_paths = resolve_glob(SAMPLE_GLOB_FILTERED)
+    active_splits_dir_path = f"{SAMPLE_ACTIVE_DIR}/splits/"
+    temporal_splits_dir_path = f"{SAMPLE_TEMPORAL_DIR}/splits/"
+    
+
+    if len(filtered_data_paths) == 0:
+        result = False
+    for path in filtered_data_paths:
+        if os.path.getsize(path) < 1024:
+            result = False
+    
+    active_splits_dir = os.listdir(active_splits_dir_path) if os.path.isdir(active_splits_dir_path) else []
+    if len(active_splits_dir) == 0:
+        result = False
+
+    temporal_splits_dir = os.listdir(temporal_splits_dir_path) if os.path.isdir(temporal_splits_dir_path) else []
+    if len(temporal_splits_dir) == 0:
+        result = False
+
+    if not os.path.isfile(RAW_META_PATH) or os.path.getsize(RAW_META_PATH) < 1024:
+        result = False
+    
+
+    return result
+
+
+
+def _joining_files_checker() -> bool:
+        
+    print(r"Reutilisation des ensembles P1")
+
+    result = True
+    joined_data_paths = resolve_glob("data/joining/*_joined.parquet")
+
+    if len(joined_data_paths) == 0:
+        result = False
+    for path in joined_data_paths:
+        print(f"Jointure chemin : {path}")
+        if os.path.getsize(path) < 1024:
+            result = False
+
+    return result
+
+
+
+def precursor():
     t_start = time.time()
 
     use_gpu = RAPIDS_AVAILABLE
     backend = "GPU (RAPIDS)" if use_gpu else "CPU (PyArrow)"
-    print(f"Pipeline de préparation — backend : {backend}\n")
+    print(f"Pipeline de préparation - backend : {backend}\n")
 
-    # ── 0. Conversion Dataset ────────────────────────────────────────
+    # -- 0. Conversion Dataset ----------------------------------------
     result = False
     try:
         result = jsonl_to_parquet_conversion()
     except Exception as e:
-        print(f"  ⚠ Conversion Dataset jsonl_to_parquet_conversion a échoué : {e}")
+        print(f"  Conversion Dataset jsonl_to_parquet_conversion a échoué : {e}")
         sys.exit(1) 
                
     if result:
 
-        # ── 1. Échantillonnage : utilisateurs actifs ─────────────────────
+        # -- 1. Échantillonnage : utilisateurs actifs ---------------------
 
         print("=" * 70)
         print("  ÉTAPE 1/5 : Échantillonnage des utilisateurs actifs")
@@ -72,7 +132,7 @@ def main():
         flush_gpu()
         gc.collect()
 
-        # ── 2. Échantillonnage : temporel ────────────────────────────────
+        # -- 2. Échantillonnage : temporel --------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 2/5 : Échantillonnage temporel")
@@ -92,7 +152,7 @@ def main():
         flush_gpu()
         gc.collect()
 
-        # ── 3. Nettoyage ─────────────────────────────────────────────────
+        # -- 3. Nettoyage -------------------------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 3/5 : Nettoyage des échantillons")
@@ -101,7 +161,7 @@ def main():
         clean_samples()
         flush_ram()
 
-        # ── 4. Filtrage ──────────────────────────────────────────────────
+        # -- 4. Filtrage --------------------------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 4/5 : Filtrage par seuils d'activité")
@@ -110,7 +170,7 @@ def main():
         filter_samples()
         flush_ram()
 
-        # ── 5. Split + sauvegarde ────────────────────────────────────────
+        # -- 5. Split + sauvegarde ----------------------------------------
 
         print("\n" + "=" * 70)
         print("  ÉTAPE 5/5 : Split train/test + matrices CSR + sauvegarde")
@@ -119,20 +179,51 @@ def main():
         split_and_save()
         flush_ram()
 
-        # ── Résumé ───────────────────────────────────────────────────────
+        # -- Résumé -------------------------------------------------------
 
         elapsed = time.time() - t_start
-        print(f"\n{'═' * 70}")
-        print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
-        print(f"{'═' * 70}")
+        print(f"\n{'=' * 70}")
+        print(f"  Pipeline complet en {elapsed:.1f}s")
+        print(f"{'=' * 70}")
 
     else:
-        print(f"  ⚠ Conversion Dataset jsonl_to_parquet_conversion ({e}),  : {result}")
+        print(f"   Conversion Dataset jsonl_to_parquet_conversion a échoué  : {result}")
 
     elapsed = time.time() - t_start
-    print(f"\n{'═' * 70}")
-    print(f"  ✓ Pipeline complet en {elapsed:.1f}s")
-    print(f"{'═' * 70}")
+    print(f"\n{'=' * 70}")
+    print(f"  Pipeline complet en {elapsed:.1f}s")
+    print(f"{'=' * 70}")
+
+
+
+
+
+def main():
+
+    t_start = time.time()
+
+    # truc.stuff()
+
+    final_files_checker = False
+    final_files_checker = _final_files_checker()
+    print(f"\n final_files_checker : {final_files_checker}\n")
+
+    if final_files_checker:
+        print("\n Echantillon present \n")
+    else:
+        precursor()
+
+    if _joining_files_checker() and os.path.isfile("results/joining/joining_diagnostics.md"):
+        cli_print_md_results()    
+    else:
+        print()
+        result = run_all(
+        verbose=True,
+        include_optional_raw=False,   
+        export_artifacts=True,
+        materialize_joined=True)
+        cli_print_results(result, t_start)
+        
 
 
 if __name__ == "__main__":
