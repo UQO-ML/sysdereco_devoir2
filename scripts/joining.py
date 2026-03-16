@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from datetime import datetime
 from typing import Tuple
+from math import floor
 
 import gc
 import json
@@ -14,8 +15,7 @@ import re
 
 import pandas as pd
 import pyarrow.parquet as pq
-
-
+import numpy as np
 
 
 
@@ -132,6 +132,13 @@ for _c in METADATA_STRUCT_COLS:
 COLUMN_TYPE_MAP["author_name"] = "catégorielle (extraite de struct)"
 COLUMN_TYPE_MAP["details_publisher"] = "catégorielle (extraite de struct)"
 COLUMN_TYPE_MAP["details_language"] = "catégorielle (extraite de struct)"
+
+
+
+
+TEMPORAL_SPLIT_TEST_RATIO = 0.20
+TEMPORAL_SPLIT_MIN_INTERACTIONS = 3
+TEMPORAL_SPLIT_TARGETS = ["active_pre_split", "temporal_pre_split"]
 
 
 
@@ -1075,6 +1082,130 @@ def post_cleaning_checks(
 
 
 
+
+def temporal_split_per_user(
+    df: pd.DataFrame,
+    test_ratio: float = TEMPORAL_SPLIT_TEST_RATIO,
+    min_interactions: int = TEMPORAL_SPLIT_MIN_INTERACTIONS,
+    verbose: bool = True,
+) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+    """Split temporel par utilisateur : les interactions les plus récentes → test.
+
+    Règles :
+    - Utilisateurs avec < min_interactions interactions → train only (pas de test)
+    - Sinon : n_test = max(1, floor(n_total × test_ratio)), borné à n_total − 1
+    - Tri par timestamp croissant intra-utilisateur, les derniers n_test → test
+
+    Returns
+    -------
+    (train_df, test_df, split_report)
+    """
+    if verbose:
+        print("\ntemporal_split_user()"),
+    n_total = len(df)
+    n_users_total = df["user_id"].nunique()
+
+    # Séparer les utilisateurs avec trop peu d'interactions
+    user_counts = df.groupby("user_id").size()
+    users_few = set(user_counts[user_counts < min_interactions].index)
+    users_splittable = set(user_counts[user_counts >= min_interactions].index)
+    if verbose:
+        print(
+            f"len(users_few): {len(users_few)}\n",
+            f"len(users_splittable): {len(users_splittable)}\n",
+        )
+
+    df_few = df[df["user_id"].isin(users_few)].copy()
+    df_split = df[df["user_id"].isin(users_splittable)].copy()
+
+    # Split vectorisé (même pattern que precursor.py mais tri temporel)
+    df_split = df_split.sort_values(["user_id", "timestamp"]).reset_index(drop=True)
+    df_split["_pos"] = df_split.groupby("user_id").cumcount()
+    df_split["_total"] = df_split.groupby("user_id")["_pos"].transform("count")
+
+    n_test_arr = np.floor(df_split["_total"].values * test_ratio).astype(int)
+    n_test_arr = np.clip(n_test_arr, 1, df_split["_total"].values - 1)
+
+    df_split["_is_test"] = df_split["_pos"] >= (df_split["_total"] - n_test_arr)
+
+    aux_cols = ["_pos", "_total", "_is_test"]
+    train_from_split = df_split.loc[~df_split["_is_test"]].drop(columns=aux_cols)
+    test_df = df_split.loc[df_split["_is_test"]].drop(columns=aux_cols)
+    del df_split
+
+    # Les utilisateurs avec peu d'interactions vont entièrement dans train
+    train_df = pd.concat([train_from_split, df_few], ignore_index=True)
+    del train_from_split, df_few
+    gc.collect()
+
+    # Vérifications de cohérence
+    users_train = set(train_df["user_id"].unique())
+    users_test = set(test_df["user_id"].unique())
+    test_only_users = users_test - users_train
+    items_train = set(train_df["parent_asin"].unique())
+    items_test = set(test_df["parent_asin"].unique())
+    test_only_items = items_test - items_train
+
+    actual_train_ratio = len(train_df) / n_total if n_total else 0.0
+
+    report: Dict[str, Any] = {
+        "method": "temporal_per_user",
+        "test_ratio_target": test_ratio,
+        "min_interactions": min_interactions,
+        "total_interactions": n_total,
+        "total_users": n_users_total,
+        "users_train_only_few_interactions": len(users_few),
+        "users_splittable": len(users_splittable),
+        "train": {
+            "n_rows": len(train_df),
+            "n_users": train_df["user_id"].nunique(),
+            "n_items": train_df["parent_asin"].nunique(),
+        },
+        "test": {
+            "n_rows": len(test_df),
+            "n_users": test_df["user_id"].nunique(),
+            "n_items": test_df["parent_asin"].nunique(),
+        },
+        "actual_train_ratio": round(actual_train_ratio, 4),
+        "actual_test_ratio": round(1.0 - actual_train_ratio, 4),
+        "checks": {
+            "all_test_users_in_train": len(test_only_users) == 0,
+            "test_only_users_count": len(test_only_users),
+            "test_only_items_count": len(test_only_items),
+            "test_only_items_pct": round(
+                len(test_only_items) / len(items_test) * 100, 4
+            ) if items_test else 0.0,
+            "test_only_items_note": (
+                "Items test-only ont une représentation metadata (TF-IDF sur title/description) "
+                "même sans interaction train — acceptable pour un content-based system."
+                if test_only_items else "Aucun item test-only."
+            ),
+        },
+        "justification": (
+            "Split temporel : on entraîne sur le passé, on évalue sur le futur. "
+            "Simule un scénario de déploiement réaliste. "
+            f"Utilisateurs avec <{min_interactions} interactions → train only "
+            "(pas assez d'historique pour construire un profil ET tester)."
+        ),
+        "rule": (
+            f"n_test = max(1, floor(n_total × {test_ratio})), borné à n_total − 1. "
+            f"Utilisateurs avec <{min_interactions} interactions → train uniquement."
+        ),
+    }
+
+    if verbose:
+        print(f"\n[temporal_split] {n_total} → train={len(train_df)} + test={len(test_df)} "
+              f"(ratio {actual_train_ratio:.2%}/{1-actual_train_ratio:.2%})")
+        print(f"  users_few (<{min_interactions}): {len(users_few)} → train only")
+        print(f"  test_only_users: {len(test_only_users)}, test_only_items: {len(test_only_items)}")
+
+    return train_df, test_df, report
+
+
+
+
+
+
 def save_diagnostics(
     result: Dict[str, Any], 
     out_dir: str = "results/joining"
@@ -1398,6 +1529,56 @@ def save_diagnostics(
             lines.append(f"- `{col}`: {desc}")
         lines.append("")
 
+    # ---------------------------------------------------------------
+    # I) Split temporel train/test
+    # ---------------------------------------------------------------
+    lines.append("## I. Split temporel train / test")
+    lines.append("")
+    splits = result.get("split_reports", {})
+    if not splits:
+        lines.append("- (pas de split temporel effectué)")
+        lines.append("")
+    else:
+        for name, sr in splits.items():
+            lines.append(f"### {name}")
+            lines.append("")
+            lines.append(f"**Méthode** : `{sr.get('method')}`")
+            lines.append("")
+            lines.append(f"**Règle** : {sr.get('rule')}")
+            lines.append("")
+            lines.append(f"**Justification** : {sr.get('justification')}")
+            lines.append("")
+            lines.append("| métrique | train | test |")
+            lines.append("|----------|-------|------|")
+            tr = sr.get("train", {})
+            te = sr.get("test", {})
+            lines.append(f"| interactions | {tr.get('n_rows'):,} | {te.get('n_rows'):,} |")
+            lines.append(f"| utilisateurs | {tr.get('n_users'):,} | {te.get('n_users'):,} |")
+            lines.append(f"| items | {tr.get('n_items'):,} | {te.get('n_items'):,} |")
+            lines.append(f"| ratio effectif | {sr.get('actual_train_ratio'):.2%} | {sr.get('actual_test_ratio'):.2%} |")
+            lines.append("")
+
+            lines.append(f"- Users train-only (< {sr.get('min_interactions')} interactions) : "
+                         f"**{sr.get('users_train_only_few_interactions')}**")
+            lines.append("")
+
+            checks = sr.get("checks", {})
+            ok_users = "OK" if checks.get("all_test_users_in_train") else "ALERTE"
+            lines.append(f"- Chaque user test ∈ train : **{ok_users}** "
+                         f"(violateurs : {checks.get('test_only_users_count', 0)})")
+            lines.append(f"- Items test-only : **{checks.get('test_only_items_count', 0)}** "
+                         f"({checks.get('test_only_items_pct', 0)}%)")
+            lines.append(f"  - {checks.get('test_only_items_note', '')}")
+            lines.append("")
+
+            paths = sr.get("paths", {})
+            if paths:
+                lines.append(f"- `{paths.get('train_path')}`")
+                lines.append(f"- `{paths.get('test_path')}`")
+                lines.append("")
+
+
+
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
@@ -1441,11 +1622,42 @@ def save_joined_dataset(
 
 
 
+def save_split_datasets(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    name: str,
+    out_dir: str = "data/joining",
+    verbose: bool = True,
+) -> Dict[str, str]:
+    """Sauvegarde train et test en parquet dans un sous-dossier par variante."""
+    variant_dir = Path(out_dir) / name
+    variant_dir.mkdir(parents=True, exist_ok=True)
+
+    train_path = variant_dir / "train_interactions.parquet"
+    test_path = variant_dir / "test_interactions.parquet"
+
+    train_df.to_parquet(train_path, index=False, engine="pyarrow")
+    test_df.to_parquet(test_path, index=False, engine="pyarrow")
+
+    if verbose:
+        print(f"  saved {train_path} ({len(train_df)} rows)")
+        print(f"  saved {test_path} ({len(test_df)} rows)")
+
+    return {
+        "train_path": str(train_path),
+        "test_path": str(test_path),
+    }
+
+
+
+
+
 def run_all(
     verbose: bool = True,
     include_optional_raw: bool = False,
     export_artifacts: bool = True,
     materialize_joined: bool = True,
+    do_temporal_split: bool = True,
 ) -> Dict[str, Any]:
     """
     Base pipeline (Tasks 1-2 ready):
@@ -1470,12 +1682,13 @@ def run_all(
     duplicate_checks: Dict[str, Any] = {}
     validation_checks: Dict[str, Any] = {}
     text_quality_checks: Dict[str, Any] = {}
-    join_metrics = {}
-    exploitable_cols = {}
-    missingness = {}
-    final_datasets = {}
-    cleaning_reports = {}
-    post_clean_checks = {}
+    join_metrics: Dict[str, Any] = {}
+    exploitable_cols: Dict[str, Any] = {}
+    missingness: Dict[str, Any] = {}
+    final_datasets: Dict[str, Any] = {}
+    cleaning_reports: Dict[str, Any] = {}
+    post_clean_checks: Dict[str, Any] = {}
+    split_reports: Dict[str, Any] = {}
 
     # metadata
     meta_cfg = manifest["metadata"]
@@ -1605,8 +1818,18 @@ def run_all(
             "n_cols": len(joined_df.columns),
         }
 
+        # 8) Split temporel train/test (uniquement sur les pre_split)
+        if do_temporal_split and name in TEMPORAL_SPLIT_TARGETS and materialize_joined:
+            train_df, test_df, split_rpt = temporal_split_per_user(joined_df, verbose=verbose)
+            split_paths = save_split_datasets(train_df, test_df, name=name, verbose=verbose)
+            split_rpt["paths"] = split_paths
+            split_reports[name] = split_rpt
+            del train_df, test_df
+            gc.collect()
+
         del inter_df, joined_df
         gc.collect()
+
 
 
     result: Dict[str, Any] = {
@@ -1627,6 +1850,7 @@ def run_all(
             "content_representation": CONTENT_REPRESENTATION_COLS,
             "learning_features": LEARNING_FEATURE_COLS,
         },
+        "split_reports": split_reports,
     }
     result["p1_reuse_note"] = build_p1_reuse_note(manifest, result["sources"])
 
@@ -1950,6 +2174,37 @@ def cli_print_results(
         print("  Variables explicatives (Tâche 3):")
         for col, desc in lf.items():
             print(f"    • {col}: {desc}")
+
+    # ------------------------------------------------------------------
+    # 8) Split temporel train/test
+    # ------------------------------------------------------------------
+    print("\n[8] Split temporel train / test")
+    splits = result.get("split_reports", {})
+    if not splits:
+        print("  (pas de split temporel effectué)")
+    else:
+        for name, sr in splits.items():
+            tr = sr.get("train", {})
+            te = sr.get("test", {})
+            checks = sr.get("checks", {})
+            print(f"  • {name}")
+            print(f"      méthode: {sr.get('method')}")
+            print(f"      train: {tr.get('n_rows'):,} interactions, "
+                  f"{tr.get('n_users'):,} users, {tr.get('n_items'):,} items")
+            print(f"      test:  {te.get('n_rows'):,} interactions, "
+                  f"{te.get('n_users'):,} users, {te.get('n_items'):,} items")
+            print(f"      ratio: {sr.get('actual_train_ratio'):.2%} / "
+                  f"{sr.get('actual_test_ratio'):.2%}")
+            print(f"      users train-only (<{sr.get('min_interactions')}): "
+                  f"{sr.get('users_train_only_few_interactions')}")
+            ok_users = "OK" if checks.get("all_test_users_in_train") else "ALERTE"
+            print(f"      test users ⊂ train: {ok_users}")
+            ok_items = checks.get("test_only_items_count", 0)
+            print(f"      items test-only: {ok_items} ({checks.get('test_only_items_pct', 0)}%)")
+            paths = sr.get("paths", {})
+            if paths:
+                print(f"      → {paths.get('train_path')}")
+                print(f"      → {paths.get('test_path')}")
 
     # Artifacts
     artifacts = result.get("artifacts", {})
