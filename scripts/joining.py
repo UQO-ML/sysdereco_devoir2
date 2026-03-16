@@ -12,6 +12,8 @@ import time
 import pandas as pd
 import pyarrow.parquet as pq
 
+import re
+
 
 
 
@@ -35,6 +37,7 @@ class SourceInfo:
 
 
 
+_HTML_PATTERN = re.compile(r"<[^>]+>|&[a-zA-Z]+;|&\#\d+;")
 
 INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp"]
 
@@ -47,7 +50,6 @@ METADATA_TEXT_COLS = METADATA_SCALAR_COLS + METADATA_LIST_COLS + METADATA_NESTED
 
 REQUIRED_INTERACTION_COLS = {"user_id", "parent_asin", "rating", "timestamp"}
 REQUIRED_METADATA_COLS = {"parent_asin"}
-
 
 COLUMN_JUSTIFICATIONS: Dict[str, str] = {
     "user_id": "Identifiant unique de l'utilisateur, clé primaire pour les interactions.",
@@ -76,6 +78,22 @@ COLUMN_JUSTIFICATIONS: Dict[str, str] = {
     "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
 }
 
+CONTENT_REPRESENTATION_COLS = {
+    "title": "TF-IDF / embeddings — titre du livre",
+    "description": "TF-IDF / embeddings — description éditoriale",
+    "categories": "Encodage catégoriel / multi-hot — taxonomie Amazon",
+    "features": "TF-IDF — points clés marketing",
+    "author_name": "Encodage catégoriel — filtrage par auteur",
+}
+
+LEARNING_FEATURE_COLS = {
+    "average_rating": "Variable continue — popularité agrégée de l'item",
+    "rating_number": "Variable continue — volume de notes (confiance)",
+    "price": "Variable continue — prix (imputé médiane)",
+    "details_publisher": "Variable catégorielle — éditeur",
+    "details_language": "Variable catégorielle — langue",
+    "author_name": "Variable catégorielle — auteur (partagé avec contenu)",
+}
 
 
 def _required_cols_for_role(
@@ -488,6 +506,166 @@ def count_missing_parent_asin(
 
 
 
+def check_duplicates(
+    df: pd.DataFrame,
+    role: str,
+) -> Dict[str, Any]:
+    n = len(df)
+    exact_dups = int(df.duplicated().sum())
+
+    result: Dict[str, Any] = {
+        "n_rows": n,
+        "exact_duplicates": exact_dups,
+        "exact_duplicates_pct": round(exact_dups / n * 100, 4) if n else 0.0,
+    }
+
+    if role == "interactions" and "user_id" in df.columns and "parent_asin" in df.columns:
+        pair_dups = int(df.duplicated(subset=["user_id", "parent_asin"]).sum())
+        result["user_item_duplicates"] = pair_dups
+        result["user_item_duplicates_pct"] = round(pair_dups / n * 100, 4) if n else 0.0
+
+    if role == "metadata" and "parent_asin" in df.columns:
+        key_dups = int(df.duplicated(subset=["parent_asin"]).sum())
+        result["parent_asin_duplicates"] = key_dups
+        result["parent_asin_duplicates_pct"] = round(key_dups / n * 100, 4) if n else 0.0
+
+    return result
+
+
+
+
+
+def validate_rating_range(
+    df: pd.DataFrame,
+    col: str = "rating",
+    valid_min: float = 1.0,
+    valid_max: float = 5.0,
+) -> Dict[str, Any]:
+    if col not in df.columns:
+        return {"column": col, "present": False}
+
+    s = df[col].dropna()
+    out_of_range = int(((s < valid_min) | (s > valid_max)).sum())
+    return {
+        "column": col,
+        "present": True,
+        "count": len(s),
+        "min": float(s.min()) if len(s) else None,
+        "max": float(s.max()) if len(s) else None,
+        "mean": round(float(s.mean()), 4) if len(s) else None,
+        "median": float(s.median()) if len(s) else None,
+        "out_of_range_count": out_of_range,
+        "out_of_range_pct": round(out_of_range / len(s) * 100, 4) if len(s) else 0.0,
+        "valid_range": [valid_min, valid_max],
+        "ok": out_of_range == 0,
+    }
+
+
+
+
+
+def validate_timestamp(
+    df: pd.DataFrame,
+    col: str = "timestamp",
+    min_year: int = 2000,
+    max_year: int = 2026,
+) -> Dict[str, Any]:
+    if col not in df.columns:
+        return {"column": col, "present": False}
+
+    s = df[col].dropna()
+    result: Dict[str, Any] = {
+        "column": col,
+        "present": True,
+        "dtype": str(s.dtype),
+        "count": len(s),
+        "ok": True,
+        "warnings": [],
+    }
+
+    try:
+        if pd.api.types.is_numeric_dtype(s):
+            ts = s
+            if s.max() > 1e12:
+                ts = s / 1000  # ms → s
+            dt = pd.to_datetime(ts, unit="s", errors="coerce")
+        else:
+            dt = pd.to_datetime(s, errors="coerce")
+
+        n_unconvertible = int(dt.isna().sum()) - int(s.isna().sum())
+        result["unconvertible_count"] = max(n_unconvertible, 0)
+
+        dt_valid = dt.dropna()
+        if len(dt_valid):
+            result["min_date"] = str(dt_valid.min())
+            result["max_date"] = str(dt_valid.max())
+            result["min_year"] = int(dt_valid.dt.year.min())
+            result["max_year"] = int(dt_valid.dt.year.max())
+
+            too_early = int((dt_valid.dt.year < min_year).sum())
+            too_late = int((dt_valid.dt.year > max_year).sum())
+            result["outliers_before_" + str(min_year)] = too_early
+            result["outliers_after_" + str(max_year)] = too_late
+
+            if too_early or too_late or n_unconvertible > 0:
+                result["ok"] = False
+                if too_early:
+                    result["warnings"].append(f"{too_early} timestamps avant {min_year}")
+                if too_late:
+                    result["warnings"].append(f"{too_late} timestamps après {max_year}")
+                if n_unconvertible > 0:
+                    result["warnings"].append(f"{n_unconvertible} valeurs non convertibles")
+        else:
+            result["ok"] = False
+            result["warnings"].append("Aucun timestamp valide après conversion")
+    except Exception as e:
+        result["ok"] = False
+        result["warnings"].append(f"Erreur de conversion: {e}")
+
+    return result
+
+
+
+
+
+
+def text_quality_report(
+    df: pd.DataFrame,
+    cols: List[str],
+) -> List[Dict[str, Any]]:
+    out = []
+    n = len(df)
+    for col in cols:
+        if col not in df.columns:
+            out.append({"column": col, "present": False})
+            continue
+
+        s = df[col].dropna()
+        str_s = s.astype(str)
+        lengths = str_s.str.len()
+
+        n_empty = int((str_s.str.strip() == "").sum())
+        n_html = int(str_s.apply(lambda x: bool(_HTML_PATTERN.search(x))).sum())
+
+        out.append({
+            "column": col,
+            "present": True,
+            "non_null_count": len(s),
+            "empty_or_blank_count": n_empty,
+            "empty_or_blank_pct": round(n_empty / n * 100, 4) if n else 0.0,
+            "avg_length": round(float(lengths.mean()), 1) if len(lengths) else 0.0,
+            "min_length": int(lengths.min()) if len(lengths) else 0,
+            "max_length": int(lengths.max()) if len(lengths) else 0,
+            "median_length": int(lengths.median()) if len(lengths) else 0,
+            "html_noise_count": n_html,
+            "html_noise_pct": round(n_html / len(s) * 100, 4) if len(s) else 0.0,
+        })
+    return out
+
+
+
+
+
 
 def run_schema_key_checks_for_target(
     name: str, 
@@ -819,6 +997,32 @@ def save_diagnostics(
         lines.append(f"- warnings: `{check.get('warnings', [])}`")
         lines.append("")
 
+    lines.append("## C2. Détection de doublons")
+    lines.append("")
+    dup_checks = result.get("duplicate_checks", {})
+    for name, dc in dup_checks.items():
+        lines.append(f"### {name}")
+        lines.append(f"- n_rows: `{dc.get('n_rows')}`")
+        lines.append(f"- doublons exacts: `{dc.get('exact_duplicates')}` ({dc.get('exact_duplicates_pct')}%)")
+        if "user_item_duplicates" in dc:
+            lines.append(f"- doublons (user_id, parent_asin): `{dc.get('user_item_duplicates')}` ({dc.get('user_item_duplicates_pct')}%)")
+        if "parent_asin_duplicates" in dc:
+            lines.append(f"- doublons parent_asin: `{dc.get('parent_asin_duplicates')}` ({dc.get('parent_asin_duplicates_pct')}%)")
+        lines.append("")
+
+    lines.append("## C2. Détection de doublons")
+    lines.append("")
+    dup_checks = result.get("duplicate_checks", {})
+    for name, dc in dup_checks.items():
+        lines.append(f"### {name}")
+        lines.append(f"- n_rows: `{dc.get('n_rows')}`")
+        lines.append(f"- doublons exacts: `{dc.get('exact_duplicates')}` ({dc.get('exact_duplicates_pct')}%)")
+        if "user_item_duplicates" in dc:
+            lines.append(f"- doublons (user_id, parent_asin): `{dc.get('user_item_duplicates')}` ({dc.get('user_item_duplicates_pct')}%)")
+        if "parent_asin_duplicates" in dc:
+            lines.append(f"- doublons parent_asin: `{dc.get('parent_asin_duplicates')}` ({dc.get('parent_asin_duplicates_pct')}%)")
+        lines.append("")
+        
     # ---------------------------------------------------------------
     # D) Qualité de jointure interactions ↔ metadata
     # ---------------------------------------------------------------
@@ -892,11 +1096,29 @@ def save_diagnostics(
                 lines.append(
                     f"- {r['column']}: missing=`{r.get('missing_pct')}%` | {r.get('strategy')}"
                 )
-            lines.append("")
+    lines.append("")
+    lines.append("## F2. Qualité des champs textuels")
+    lines.append("")
+    tq = result.get("text_quality", {})
+    for name, cols_report in tq.items():
+        lines.append(f"### {name}")
+        for r in cols_report:
+            if not r.get("present"):
+                lines.append(f"- {r.get('column')}: absent")
+                continue
+            lines.append(
+                f"- {r.get('column')}: "
+                f"avg_len=`{r.get('avg_length')}`, "
+                f"median_len=`{r.get('median_length')}`, "
+                f"vides=`{r.get('empty_or_blank_count')}` ({r.get('empty_or_blank_pct')}%), "
+                f"HTML=`{r.get('html_noise_count')}` ({r.get('html_noise_pct')}%)"
+            )
+        lines.append("")
 
     # ---------------------------------------------------------------
     # G) Datasets finaux produits
     # ---------------------------------------------------------------
+
     lines.append("## G. Jeux de données finaux")
     lines.append("")
     finals = result.get("final_datasets", {})
@@ -910,6 +1132,27 @@ def save_diagnostics(
             lines.append(f"- rows: `{fd.get('n_rows')}`")
             lines.append(f"- cols: `{fd.get('n_cols')}`")
             lines.append("")
+
+
+    # ---------------------------------------------------------------
+    # H) Usage des colonnes par tâche
+    # ---------------------------------------------------------------
+
+    lines.append("## H. Usage des colonnes par tâche")
+    lines.append("")
+    col_purpose = result.get("column_purpose", {})
+    cr = col_purpose.get("content_representation", {})
+    lf = col_purpose.get("learning_features", {})
+    if cr:
+        lines.append("### Représentation de contenu (Tâches 0-2)")
+        for col, desc in cr.items():
+            lines.append(f"- `{col}`: {desc}")
+        lines.append("")
+    if lf:
+        lines.append("### Variables explicatives (Tâche 3)")
+        for col, desc in lf.items():
+            lines.append(f"- `{col}`: {desc}")
+        lines.append("")
 
     with open(md_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
@@ -980,6 +1223,9 @@ def run_all(
     source_meta_all_cols = meta_source_info.columns
 
     schema_checks: Dict[str, Any] = {}
+    duplicate_checks: Dict[str, Any] = {}
+    validation_checks: Dict[str, Any] = {}
+    text_quality_checks: Dict[str, Any] = {}
     join_metrics = {}
     exploitable_cols = {}
     missingness = {}
@@ -993,6 +1239,7 @@ def run_all(
     meta_df = load_target_df(meta_cfg, meta_cols, verbose=verbose)
     meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
     meta_key_set = set(meta_df["parent_asin"].dropna().unique().tolist())
+    duplicate_checks["metadata"] = check_duplicates(meta_df, role="metadata")
 
     if path_status.get("metadata", False):
         schema_checks["metadata"] = run_schema_key_checks_for_target("metadata", meta_cfg, meta_df)
@@ -1018,6 +1265,15 @@ def run_all(
             continue
 
         inter_df = load_target_df(cfg, columns=inter_cols, verbose=verbose)
+
+        # duplicates
+        duplicate_checks[name] = check_duplicates(inter_df, role="interactions")
+
+        # rating + timestamp validation
+        validation_checks[name] = {
+            "rating": validate_rating_range(inter_df),
+            "timestamp": validate_timestamp(inter_df),
+        }
 
         schema_checks[name] = run_schema_key_checks_for_target(name, cfg, inter_df)
 
@@ -1046,6 +1302,11 @@ def run_all(
         if verbose:
             print(f"meta_keep: {meta_keep}")
         joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep, verbose=verbose)
+        text_cols_to_check = [c for c in ["title", "subtitle", "description",
+            "categories", "features", "author_name",
+            "details_publisher", "details_language"] if c in joined_df.columns]
+        text_quality_checks[name] = text_quality_report(joined_df, text_cols_to_check)
+
         if verbose:
             print(
                 # f"\njoined_df: {joined_df}"
@@ -1075,10 +1336,16 @@ def run_all(
         "path_status": path_status,
         "sources": [asdict(s) for s in source_infos],
         "schema_checks": schema_checks,
+        "duplicate_checks": duplicate_checks,
+        "validation_checks": validation_checks,
         "join_metrics": join_metrics,
         "exploitable_columns": exploitable_cols,
         "missingness": missingness,
+        "text_quality": text_quality_checks,
         "final_datasets": final_datasets,
+        "column_purpose": {
+            "content_representation": CONTENT_REPRESENTATION_COLS,
+            "learning_features": LEARNING_FEATURE_COLS,
     }
     result["p1_reuse_note"] = build_p1_reuse_note(manifest, result["sources"])
 
@@ -1177,6 +1444,39 @@ def cli_print_results(
         print(f"      coercion_warning: {chk.get('coercion', {}).get('warning')}")
 
     # ------------------------------------------------------------------
+    # 2b) Doublons
+    # ------------------------------------------------------------------
+    print("\n[2b] Détection de doublons")
+    dup_checks = result.get("duplicate_checks", {})
+    for name, dc in dup_checks.items():
+        print(f"  • {name} ({_fmt_num(dc.get('n_rows'))} rows)")
+        print(f"      doublons exacts: {_fmt_num(dc.get('exact_duplicates'))} ({dc.get('exact_duplicates_pct')}%)")
+        if "user_item_duplicates" in dc:
+            print(f"      doublons (user, item): {_fmt_num(dc.get('user_item_duplicates'))} ({dc.get('user_item_duplicates_pct')}%)")
+        if "parent_asin_duplicates" in dc:
+            print(f"      doublons parent_asin: {_fmt_num(dc.get('parent_asin_duplicates'))} ({dc.get('parent_asin_duplicates_pct')}%)")
+
+    # ------------------------------------------------------------------
+    # 2c) Validation rating + timestamp
+    # ------------------------------------------------------------------
+    print("\n[2c] Validation rating et timestamp")
+    val_checks = result.get("validation_checks", {})
+    for name, vc in val_checks.items():
+        print(f"  • {name}")
+        rt = vc.get("rating", {})
+        if rt.get("present"):
+            status = "OK" if rt.get("ok") else "PROBLÈME"
+            print(f"      rating: [{rt.get('min')} – {rt.get('max')}], "
+                  f"mean={rt.get('mean')}, hors [1,5]={_fmt_num(rt.get('out_of_range_count'))} → {status}")
+        ts = vc.get("timestamp", {})
+        if ts.get("present"):
+            status = "OK" if ts.get("ok") else "PROBLÈME"
+            print(f"      timestamp: {ts.get('min_date', 'N/A')} → {ts.get('max_date', 'N/A')}, "
+                  f"dtype={ts.get('dtype')} → {status}")
+            for w in ts.get("warnings", []):
+                print(f"        ⚠ {w}")
+
+    # ------------------------------------------------------------------
     # 3) Qualité de jointure interactions ↔ metadata
     # ------------------------------------------------------------------
     print("\n[3] Qualité de jointure via `parent_asin`")
@@ -1271,6 +1571,21 @@ def cli_print_results(
                 )
 
     # ------------------------------------------------------------------
+    # 5b) Qualité textuelle
+    # ------------------------------------------------------------------
+    print("\n[5b] Qualité des champs textuels")
+    tq = result.get("text_quality", {})
+    for name, cols_report in tq.items():
+        print(f"  • {name}")
+        for r in cols_report:
+            if not r.get("present"):
+                continue
+            html_note = f", HTML={r.get('html_noise_count')}" if r.get("html_noise_count", 0) > 0 else ""
+            print(f"      {r.get('column')}: avg_len={r.get('avg_length')}, "
+                  f"median_len={r.get('median_length')}, "
+                  f"vides={r.get('empty_or_blank_count')}{html_note}")
+
+    # ------------------------------------------------------------------
     # 6) Jeux finaux produits
     # ------------------------------------------------------------------
     print("\n[6] Jeux finaux cohérents produits")
@@ -1283,6 +1598,22 @@ def cli_print_results(
                 f"  • {name}: path={fd.get('path')} | "
                 f"rows={_fmt_num(fd.get('n_rows'))} | cols={_fmt_num(fd.get('n_cols'))}"
             )
+
+    # ------------------------------------------------------------------
+    # 7) Usage des colonnes par tâche
+    # ------------------------------------------------------------------
+    print("\n[7] Mapping colonnes → tâches")
+    col_purpose = result.get("column_purpose", {})
+    cr = col_purpose.get("content_representation", {})
+    lf = col_purpose.get("learning_features", {})
+    if cr:
+        print("  Représentation de contenu (Tâches 0-2):")
+        for col, desc in cr.items():
+            print(f"    • {col}: {desc}")
+    if lf:
+        print("  Variables explicatives (Tâche 3):")
+        for col, desc in lf.items():
+            print(f"    • {col}: {desc}")
 
     # Artifacts
     artifacts = result.get("artifacts", {})
