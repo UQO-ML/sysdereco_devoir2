@@ -9,16 +9,6 @@
         "data/processed/sample-active-users/active_users_filtered.parquet"
       ]
     },
-    "active_post_split_union": {
-      "stage": "post_split",
-      "variant": "active",
-      "role": "interactions",
-      "kind": "union",
-      "paths": [
-        "data/processed/sample-active-users/splits/train.parquet",
-        "data/processed/sample-active-users/splits/test.parquet"
-      ]
-    },
     "temporal_pre_split": {
       "stage": "pre_split",
       "variant": "temporal",
@@ -26,16 +16,6 @@
       "kind": "single",
       "paths": [
         "data/processed/sample-temporal/temporal_filtered.parquet"
-      ]
-    },
-    "temporal_post_split_union": {
-      "stage": "post_split",
-      "variant": "temporal",
-      "role": "interactions",
-      "kind": "union",
-      "paths": [
-        "data/processed/sample-temporal/splits/train.parquet",
-        "data/processed/sample-temporal/splits/test.parquet"
       ]
     },
     "metadata": {
@@ -50,9 +30,7 @@
   },
   "path_status": {
     "active_pre_split": true,
-    "active_post_split_union": true,
     "temporal_pre_split": true,
-    "temporal_post_split_union": true,
     "metadata": true
   },
   "sources": [
@@ -104,109 +82,6 @@
       }
     },
     {
-      "name": "active_post_split_union",
-      "stage": "post_split",
-      "variant": "active",
-      "role": "interactions",
-      "kind": "union",
-      "paths": [
-        "data/processed/sample-active-users/splits/train.parquet",
-        "data/processed/sample-active-users/splits/test.parquet"
-      ],
-      "exists": true,
-      "format": "parquet_union",
-      "size_bytes": 319440598,
-      "n_rows": 497931,
-      "n_cols": 10,
-      "columns": [
-        "asin",
-        "helpful_vote",
-        "images",
-        "parent_asin",
-        "rating",
-        "text",
-        "timestamp",
-        "title",
-        "user_id",
-        "verified_purchase"
-      ],
-      "details": {
-        "exists": true,
-        "format": "parquet_union",
-        "size_bytes": 319440598,
-        "n_rows": 497931,
-        "columns": [
-          "asin",
-          "helpful_vote",
-          "images",
-          "parent_asin",
-          "rating",
-          "text",
-          "timestamp",
-          "title",
-          "user_id",
-          "verified_purchase"
-        ],
-        "n_cols": 10,
-        "parts": {
-          "train": {
-            "exists": true,
-            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/splits/train.parquet",
-            "format": "parquet",
-            "size_bytes": 257511434,
-            "n_rows": 404849,
-            "columns": [
-              "rating",
-              "title",
-              "text",
-              "images",
-              "asin",
-              "parent_asin",
-              "user_id",
-              "timestamp",
-              "helpful_vote",
-              "verified_purchase"
-            ],
-            "n_cols": 10
-          },
-          "test": {
-            "exists": true,
-            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/splits/test.parquet",
-            "format": "parquet",
-            "size_bytes": 61929164,
-            "n_rows": 93082,
-            "columns": [
-              "rating",
-              "title",
-              "text",
-              "images",
-              "asin",
-              "parent_asin",
-              "user_id",
-              "timestamp",
-              "helpful_vote",
-              "verified_purchase"
-            ],
-            "n_cols": 10
-          }
-        },
-        "columns_intersection": [
-          "asin",
-          "helpful_vote",
-          "images",
-          "parent_asin",
-          "rating",
-          "text",
-          "timestamp",
-          "title",
-          "user_id",
-          "verified_purchase"
-        ],
-        "columns_train_only": [],
-        "columns_test_only": []
-      }
-    },
-    {
       "name": "temporal_pre_split",
       "stage": "pre_split",
       "variant": "temporal",
@@ -249,104 +124,6 @@
           "verified_purchase"
         ],
         "n_cols": 9
-      }
-    },
-    {
-      "name": "temporal_post_split_union",
-      "stage": "post_split",
-      "variant": "temporal",
-      "role": "interactions",
-      "kind": "union",
-      "paths": [
-        "data/processed/sample-temporal/splits/train.parquet",
-        "data/processed/sample-temporal/splits/test.parquet"
-      ],
-      "exists": true,
-      "format": "parquet_union",
-      "size_bytes": 138832248,
-      "n_rows": 285521,
-      "n_cols": 9,
-      "columns": [
-        "asin",
-        "helpful_vote",
-        "parent_asin",
-        "rating",
-        "text",
-        "timestamp",
-        "title",
-        "user_id",
-        "verified_purchase"
-      ],
-      "details": {
-        "exists": true,
-        "format": "parquet_union",
-        "size_bytes": 138832248,
-        "n_rows": 285521,
-        "columns": [
-          "asin",
-          "helpful_vote",
-          "parent_asin",
-          "rating",
-          "text",
-          "timestamp",
-          "title",
-          "user_id",
-          "verified_purchase"
-        ],
-        "n_cols": 9,
-        "parts": {
-          "train": {
-            "exists": true,
-            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/splits/train.parquet",
-            "format": "parquet",
-            "size_bytes": 111971246,
-            "n_rows": 232437,
-            "columns": [
-              "rating",
-              "title",
-              "text",
-              "asin",
-              "parent_asin",
-              "user_id",
-              "timestamp",
-              "helpful_vote",
-              "verified_purchase"
-            ],
-            "n_cols": 9
-          },
-          "test": {
-            "exists": true,
-            "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/splits/test.parquet",
-            "format": "parquet",
-            "size_bytes": 26861002,
-            "n_rows": 53084,
-            "columns": [
-              "rating",
-              "title",
-              "text",
-              "asin",
-              "parent_asin",
-              "user_id",
-              "timestamp",
-              "helpful_vote",
-              "verified_purchase"
-            ],
-            "n_cols": 9
-          }
-        },
-        "columns_intersection": [
-          "asin",
-          "helpful_vote",
-          "parent_asin",
-          "rating",
-          "text",
-          "timestamp",
-          "title",
-          "user_id",
-          "verified_purchase"
-        ],
-        "columns_train_only": [],
-        "columns_test_only": []
       }
     },
     {
@@ -467,36 +244,6 @@
       },
       "warnings": []
     },
-    "active_post_split_union": {
-      "target": "active_post_split_union",
-      "stage": "post_split",
-      "variant": "active",
-      "role": "interactions",
-      "ok": true,
-      "required_columns": {
-        "required": [
-          "parent_asin",
-          "rating",
-          "timestamp",
-          "user_id"
-        ],
-        "missing_required": [],
-        "ok": true
-      },
-      "coercion": {
-        "coercion_applied": true,
-        "warning": null,
-        "changed_non_null_values": 0,
-        "non_null_before": 497931,
-        "non_null_after": 497931
-      },
-      "missing_keys": {
-        "missing_parent_asin_count": 0,
-        "missing_parent_asin_pct": 0.0,
-        "n_rows": 497931
-      },
-      "warnings": []
-    },
     "temporal_pre_split": {
       "target": "temporal_pre_split",
       "stage": "pre_split",
@@ -526,36 +273,6 @@
         "n_rows": 289949
       },
       "warnings": []
-    },
-    "temporal_post_split_union": {
-      "target": "temporal_post_split_union",
-      "stage": "post_split",
-      "variant": "temporal",
-      "role": "interactions",
-      "ok": true,
-      "required_columns": {
-        "required": [
-          "parent_asin",
-          "rating",
-          "timestamp",
-          "user_id"
-        ],
-        "missing_required": [],
-        "ok": true
-      },
-      "coercion": {
-        "coercion_applied": true,
-        "warning": null,
-        "changed_non_null_values": 0,
-        "non_null_before": 285521,
-        "non_null_after": 285521
-      },
-      "missing_keys": {
-        "missing_parent_asin_count": 0,
-        "missing_parent_asin_pct": 0.0,
-        "n_rows": 285521
-      },
-      "warnings": []
     }
   },
   "duplicate_checks": {
@@ -573,26 +290,12 @@
       "user_item_duplicates": 10947,
       "user_item_duplicates_pct": 2.1512
     },
-    "active_post_split_union": {
-      "n_rows": 497931,
-      "exact_duplicates": 0,
-      "exact_duplicates_pct": 0.0,
-      "user_item_duplicates": 0,
-      "user_item_duplicates_pct": 0.0
-    },
     "temporal_pre_split": {
       "n_rows": 289949,
       "exact_duplicates": 4428,
       "exact_duplicates_pct": 1.5272,
       "user_item_duplicates": 4428,
       "user_item_duplicates_pct": 1.5272
-    },
-    "temporal_post_split_union": {
-      "n_rows": 285521,
-      "exact_duplicates": 0,
-      "exact_duplicates_pct": 0.0,
-      "user_item_duplicates": 0,
-      "user_item_duplicates_pct": 0.0
     }
   },
   "validation_checks": {
@@ -631,41 +334,6 @@
         "outliers_after_2026": 0
       }
     },
-    "active_post_split_union": {
-      "rating": {
-        "column": "rating",
-        "present": true,
-        "count": 497931,
-        "min": 1.0,
-        "max": 5.0,
-        "mean": 4.247,
-        "median": 5.0,
-        "out_of_range_count": 0,
-        "out_of_range_pct": 0.0,
-        "valid_range": [
-          1.0,
-          5.0
-        ],
-        "ok": true
-      },
-      "timestamp": {
-        "column": "timestamp",
-        "present": true,
-        "dtype": "int64",
-        "count": 497931,
-        "ok": false,
-        "warnings": [
-          "456 timestamps avant 2000"
-        ],
-        "unconvertible_count": 0,
-        "min_date": "1996-12-17 04:37:25",
-        "max_date": "2023-09-03 20:10:49.845000029",
-        "min_year": 1996,
-        "max_year": 2023,
-        "outliers_before_2000": 456,
-        "outliers_after_2026": 0
-      }
-    },
     "temporal_pre_split": {
       "rating": {
         "column": "rating",
@@ -698,39 +366,6 @@
         "outliers_before_2000": 0,
         "outliers_after_2026": 0
       }
-    },
-    "temporal_post_split_union": {
-      "rating": {
-        "column": "rating",
-        "present": true,
-        "count": 285521,
-        "min": 1.0,
-        "max": 5.0,
-        "mean": 4.4439,
-        "median": 5.0,
-        "out_of_range_count": 0,
-        "out_of_range_pct": 0.0,
-        "valid_range": [
-          1.0,
-          5.0
-        ],
-        "ok": true
-      },
-      "timestamp": {
-        "column": "timestamp",
-        "present": true,
-        "dtype": "datetime64[ms]",
-        "count": 285521,
-        "ok": true,
-        "warnings": [],
-        "unconvertible_count": 0,
-        "min_date": "2020-01-01 00:17:29.935000",
-        "max_date": "2023-09-03 20:10:49.845000",
-        "min_year": 2020,
-        "max_year": 2023,
-        "outliers_before_2000": 0,
-        "outliers_after_2026": 0
-      }
     }
   },
   "join_metrics": {
@@ -749,40 +384,10 @@
       "ratio_meta_utilisees": 0.010132906012592563,
       "interpretation": "45,073 items sur 4,448,181 metadata (1.0%), cohérent avec le sous-échantillonnage P1."
     },
-    "active_post_split_union": {
-      "nb_parent_asin_communs": 45073,
-      "nb_interactions_totales": 497931,
-      "nb_interactions_jointes": 497931,
-      "ratio_interactions_jointes": 1.0,
-      "nb_items_totaux": 45073,
-      "nb_items_avec_meta": 45073,
-      "ratio_items_avec_meta": 1.0,
-      "interactions_non_jointes_si_inner_join": 0,
-      "items_sans_meta": 0,
-      "nb_meta_total": 4448181,
-      "nb_meta_orphelines": 4403108,
-      "ratio_meta_utilisees": 0.010132906012592563,
-      "interpretation": "45,073 items sur 4,448,181 metadata (1.0%), cohérent avec le sous-échantillonnage P1."
-    },
     "temporal_pre_split": {
       "nb_parent_asin_communs": 22007,
       "nb_interactions_totales": 289949,
       "nb_interactions_jointes": 289949,
-      "ratio_interactions_jointes": 1.0,
-      "nb_items_totaux": 22007,
-      "nb_items_avec_meta": 22007,
-      "ratio_items_avec_meta": 1.0,
-      "interactions_non_jointes_si_inner_join": 0,
-      "items_sans_meta": 0,
-      "nb_meta_total": 4448181,
-      "nb_meta_orphelines": 4426174,
-      "ratio_meta_utilisees": 0.004947415584033114,
-      "interpretation": "22,007 items sur 4,448,181 metadata (0.5%), cohérent avec le sous-échantillonnage P1."
-    },
-    "temporal_post_split_union": {
-      "nb_parent_asin_communs": 22007,
-      "nb_interactions_totales": 285521,
-      "nb_interactions_jointes": 285521,
       "ratio_interactions_jointes": 1.0,
       "nb_items_totaux": 22007,
       "nb_items_avec_meta": 22007,
@@ -873,83 +478,6 @@
         "bought_together": "Exclu : colonne entièrement nulle dans le parquet."
       }
     },
-    "active_post_split_union": {
-      "interactions_kept": [
-        "user_id",
-        "parent_asin",
-        "rating",
-        "timestamp"
-      ],
-      "metadata_text_kept": [
-        "title",
-        "subtitle",
-        "features",
-        "description",
-        "categories",
-        "author",
-        "details"
-      ],
-      "metadata_struct_kept": [
-        "average_rating",
-        "rating_number",
-        "price"
-      ],
-      "metadata_scalar": [
-        "title",
-        "subtitle"
-      ],
-      "metadata_list": [
-        "features",
-        "description",
-        "categories"
-      ],
-      "metadata_nested": [
-        "author",
-        "details"
-      ],
-      "ignored_interactions_cols": [
-        "asin",
-        "helpful_vote",
-        "images",
-        "text",
-        "title",
-        "verified_purchase"
-      ],
-      "ignored_metadata_cols": [
-        "main_category",
-        "images",
-        "videos",
-        "store",
-        "bought_together"
-      ],
-      "justifications": {
-        "user_id": "Identifiant unique de l'utilisateur, clé primaire pour les interactions.",
-        "parent_asin": "Clé de jointure commune interactions ↔ metadata.",
-        "rating": "Note attribuée par l'utilisateur, variable cible du système de recommandation.",
-        "timestamp": "Horodatage de l'interaction, nécessaire pour le split temporel.",
-        "title": "Titre du livre, exploitable pour la représentation textuelle (TF-IDF, embeddings).",
-        "subtitle": "Sous-titre du livre, complément textuel du titre.",
-        "features": "Points clés marketing, contenu textuel complémentaire.",
-        "description": "Description éditoriale, riche en contenu sémantique pour le content-based filtering.",
-        "categories": "Taxonomie hiérarchique Amazon, utile pour le filtrage par genre.",
-        "author": "Structure imbriquée → extraction de author_name. Permet le filtrage par auteur.",
-        "details": "Structure imbriquée → extraction de Publisher et Language. Attributs exploitables.",
-        "average_rating": "Note moyenne agrégée, signal de popularité pour le modèle.",
-        "rating_number": "Nombre total de notes, indicateur de popularité/confiance.",
-        "price": "Prix du livre, 23.9% manquant → imputation médiane retenue car distribution asymétrique."
-      },
-      "exclusion_reasons": {
-        "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
-        "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
-        "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
-        "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
-        "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
-        "main_category": "Exclu : valeur quasi-constante ('Books' pour >99% des lignes).",
-        "videos": "Exclu : quasi-vide, non pertinent pour la recommandation textuelle.",
-        "store": "Exclu : redondant avec author (contient 'Author Name (Author)').",
-        "bought_together": "Exclu : colonne entièrement nulle dans le parquet."
-      }
-    },
     "temporal_pre_split": {
       "interactions_kept": [
         "user_id",
@@ -1018,82 +546,6 @@
         "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
         "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
         "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
-        "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
-        "main_category": "Exclu : valeur quasi-constante ('Books' pour >99% des lignes).",
-        "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
-        "videos": "Exclu : quasi-vide, non pertinent pour la recommandation textuelle.",
-        "store": "Exclu : redondant avec author (contient 'Author Name (Author)').",
-        "bought_together": "Exclu : colonne entièrement nulle dans le parquet."
-      }
-    },
-    "temporal_post_split_union": {
-      "interactions_kept": [
-        "user_id",
-        "parent_asin",
-        "rating",
-        "timestamp"
-      ],
-      "metadata_text_kept": [
-        "title",
-        "subtitle",
-        "features",
-        "description",
-        "categories",
-        "author",
-        "details"
-      ],
-      "metadata_struct_kept": [
-        "average_rating",
-        "rating_number",
-        "price"
-      ],
-      "metadata_scalar": [
-        "title",
-        "subtitle"
-      ],
-      "metadata_list": [
-        "features",
-        "description",
-        "categories"
-      ],
-      "metadata_nested": [
-        "author",
-        "details"
-      ],
-      "ignored_interactions_cols": [
-        "asin",
-        "helpful_vote",
-        "text",
-        "title",
-        "verified_purchase"
-      ],
-      "ignored_metadata_cols": [
-        "main_category",
-        "images",
-        "videos",
-        "store",
-        "bought_together"
-      ],
-      "justifications": {
-        "user_id": "Identifiant unique de l'utilisateur, clé primaire pour les interactions.",
-        "parent_asin": "Clé de jointure commune interactions ↔ metadata.",
-        "rating": "Note attribuée par l'utilisateur, variable cible du système de recommandation.",
-        "timestamp": "Horodatage de l'interaction, nécessaire pour le split temporel.",
-        "title": "Titre du livre, exploitable pour la représentation textuelle (TF-IDF, embeddings).",
-        "subtitle": "Sous-titre du livre, complément textuel du titre.",
-        "features": "Points clés marketing, contenu textuel complémentaire.",
-        "description": "Description éditoriale, riche en contenu sémantique pour le content-based filtering.",
-        "categories": "Taxonomie hiérarchique Amazon, utile pour le filtrage par genre.",
-        "author": "Structure imbriquée → extraction de author_name. Permet le filtrage par auteur.",
-        "details": "Structure imbriquée → extraction de Publisher et Language. Attributs exploitables.",
-        "average_rating": "Note moyenne agrégée, signal de popularité pour le modèle.",
-        "rating_number": "Nombre total de notes, indicateur de popularité/confiance.",
-        "price": "Prix du livre, 23.9% manquant → imputation médiane retenue car distribution asymétrique."
-      },
-      "exclusion_reasons": {
-        "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
-        "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
-        "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
         "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
         "main_category": "Exclu : valeur quasi-constante ('Books' pour >99% des lignes).",
         "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
@@ -1442,683 +894,7 @@
         }
       ]
     },
-    "active_post_split_union": {
-      "on_interactions_raw": [
-        {
-          "column": "user_id",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé primaire interactions — ligne non identifiable sans user_id."
-        },
-        {
-          "column": "parent_asin",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable."
-        },
-        {
-          "column": "rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (variable cible)",
-          "column_type": "numérique",
-          "justification": "Variable cible du système de recommandation — ligne sans note exclue."
-        },
-        {
-          "column": "timestamp",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "numérique",
-          "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
-        }
-      ],
-      "on_meta_global": [
-        {
-          "column": "parent_asin",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable."
-        },
-        {
-          "column": "title",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description."
-        },
-        {
-          "column": "subtitle",
-          "missing_count": 477172,
-          "missing_pct": 10.7274,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 10.7274,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation."
-        },
-        {
-          "column": "features",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 520315,
-          "empty_pct": 11.6973,
-          "effective_missing_pct": 11.6973,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Points clés marketing ; vide tolérable, données complémentaires au content-based."
-        },
-        {
-          "column": "description",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 2607876,
-          "empty_pct": 58.6279,
-          "effective_missing_pct": 58.6279,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Contenu sémantique riche pour content-based filtering ; vide tolérable car compensé par title+features."
-        },
-        {
-          "column": "categories",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 528673,
-          "empty_pct": 11.8852,
-          "effective_missing_pct": 11.8852,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Taxonomie Amazon pour filtrage par genre ; vide tolérable, données complémentaires."
-        },
-        {
-          "column": "author",
-          "missing_count": 1580830,
-          "missing_pct": 35.5388,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 35.5388,
-          "strategy": "aplatir struct (extraire champ clé en string)",
-          "column_type": "catégorielle (struct imbriqué)",
-          "justification": "Structure imbriquée → extraction de author_name ; vide si auteur inconnu, impact limité."
-        },
-        {
-          "column": "details",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "aplatir struct (extraire champ clé en string)",
-          "column_type": "catégorielle (struct imbriqué)",
-          "justification": "Structure imbriquée → publisher/language ; vide tolérable, attributs secondaires."
-        },
-        {
-          "column": "average_rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Signal de popularité agrégé ; NaN rare, imputation non nécessaire sauf si >5%."
-        },
-        {
-          "column": "rating_number",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Volume de notes ; NaN rare, indicateur de confiance secondaire."
-        },
-        {
-          "column": "price",
-          "missing_count": 1063181,
-          "missing_pct": 23.9015,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 23.9015,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Distribution asymétrique, ~24% manquant → médiane plus robuste que la moyenne."
-        }
-      ],
-      "on_joined_subset": [
-        {
-          "column": "user_id",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé primaire interactions — ligne non identifiable sans user_id."
-        },
-        {
-          "column": "parent_asin",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable."
-        },
-        {
-          "column": "rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (variable cible)",
-          "column_type": "numérique",
-          "justification": "Variable cible du système de recommandation — ligne sans note exclue."
-        },
-        {
-          "column": "timestamp",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "numérique",
-          "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
-        },
-        {
-          "column": "title",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description."
-        },
-        {
-          "column": "subtitle",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 42583,
-          "empty_pct": 8.552,
-          "effective_missing_pct": 8.552,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation."
-        },
-        {
-          "column": "features",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 2148,
-          "empty_pct": 0.4314,
-          "effective_missing_pct": 0.4314,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Points clés marketing ; vide tolérable, données complémentaires au content-based."
-        },
-        {
-          "column": "description",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 59302,
-          "empty_pct": 11.9097,
-          "effective_missing_pct": 11.9097,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Contenu sémantique riche pour content-based filtering ; vide tolérable car compensé par title+features."
-        },
-        {
-          "column": "categories",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 607,
-          "empty_pct": 0.1219,
-          "effective_missing_pct": 0.1219,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Taxonomie Amazon pour filtrage par genre ; vide tolérable, données complémentaires."
-        },
-        {
-          "column": "average_rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Signal de popularité agrégé ; NaN rare, imputation non nécessaire sauf si >5%."
-        },
-        {
-          "column": "rating_number",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Volume de notes ; NaN rare, indicateur de confiance secondaire."
-        },
-        {
-          "column": "price",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Distribution asymétrique, ~24% manquant → médiane plus robuste que la moyenne."
-        },
-        {
-          "column": "author_name",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 21240,
-          "empty_pct": 4.2657,
-          "effective_missing_pct": 4.2657,
-          "strategy": "au cas par cas / hors périmètre",
-          "column_type": "catégorielle (extraite de struct)",
-          "justification": "Extrait de struct author ; vide si auteur inconnu, impact limité."
-        },
-        {
-          "column": "details_publisher",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "au cas par cas / hors périmètre",
-          "column_type": "catégorielle (extraite de struct)",
-          "justification": "Extrait de struct details ; vide tolérable, attribut catégoriel secondaire."
-        },
-        {
-          "column": "details_language",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "au cas par cas / hors périmètre",
-          "column_type": "catégorielle (extraite de struct)",
-          "justification": "Extrait de struct details ; vide tolérable, quasi-constant ('English')."
-        }
-      ]
-    },
     "temporal_pre_split": {
-      "on_interactions_raw": [
-        {
-          "column": "user_id",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé primaire interactions — ligne non identifiable sans user_id."
-        },
-        {
-          "column": "parent_asin",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable."
-        },
-        {
-          "column": "rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (variable cible)",
-          "column_type": "numérique",
-          "justification": "Variable cible du système de recommandation — ligne sans note exclue."
-        },
-        {
-          "column": "timestamp",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "numérique",
-          "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
-        }
-      ],
-      "on_meta_global": [
-        {
-          "column": "parent_asin",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable."
-        },
-        {
-          "column": "title",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description."
-        },
-        {
-          "column": "subtitle",
-          "missing_count": 477172,
-          "missing_pct": 10.7274,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 10.7274,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation."
-        },
-        {
-          "column": "features",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 520315,
-          "empty_pct": 11.6973,
-          "effective_missing_pct": 11.6973,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Points clés marketing ; vide tolérable, données complémentaires au content-based."
-        },
-        {
-          "column": "description",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 2607876,
-          "empty_pct": 58.6279,
-          "effective_missing_pct": 58.6279,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Contenu sémantique riche pour content-based filtering ; vide tolérable car compensé par title+features."
-        },
-        {
-          "column": "categories",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 528673,
-          "empty_pct": 11.8852,
-          "effective_missing_pct": 11.8852,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Taxonomie Amazon pour filtrage par genre ; vide tolérable, données complémentaires."
-        },
-        {
-          "column": "author",
-          "missing_count": 1580830,
-          "missing_pct": 35.5388,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 35.5388,
-          "strategy": "aplatir struct (extraire champ clé en string)",
-          "column_type": "catégorielle (struct imbriqué)",
-          "justification": "Structure imbriquée → extraction de author_name ; vide si auteur inconnu, impact limité."
-        },
-        {
-          "column": "details",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "aplatir struct (extraire champ clé en string)",
-          "column_type": "catégorielle (struct imbriqué)",
-          "justification": "Structure imbriquée → publisher/language ; vide tolérable, attributs secondaires."
-        },
-        {
-          "column": "average_rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Signal de popularité agrégé ; NaN rare, imputation non nécessaire sauf si >5%."
-        },
-        {
-          "column": "rating_number",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Volume de notes ; NaN rare, indicateur de confiance secondaire."
-        },
-        {
-          "column": "price",
-          "missing_count": 1063181,
-          "missing_pct": 23.9015,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 23.9015,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Distribution asymétrique, ~24% manquant → médiane plus robuste que la moyenne."
-        }
-      ],
-      "on_joined_subset": [
-        {
-          "column": "user_id",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé primaire interactions — ligne non identifiable sans user_id."
-        },
-        {
-          "column": "parent_asin",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "clé (identifiant)",
-          "justification": "Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable."
-        },
-        {
-          "column": "rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (variable cible)",
-          "column_type": "numérique",
-          "justification": "Variable cible du système de recommandation — ligne sans note exclue."
-        },
-        {
-          "column": "timestamp",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "supprimer lignes incomplètes (clé obligatoire)",
-          "column_type": "numérique",
-          "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
-        },
-        {
-          "column": "title",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description."
-        },
-        {
-          "column": "subtitle",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 29655,
-          "empty_pct": 10.3863,
-          "effective_missing_pct": 10.3863,
-          "strategy": "remplacer NaN par chaîne vide",
-          "column_type": "textuelle (scalaire)",
-          "justification": "Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation."
-        },
-        {
-          "column": "features",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 4052,
-          "empty_pct": 1.4192,
-          "effective_missing_pct": 1.4192,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Points clés marketing ; vide tolérable, données complémentaires au content-based."
-        },
-        {
-          "column": "description",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 95099,
-          "empty_pct": 33.3072,
-          "effective_missing_pct": 33.3072,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Contenu sémantique riche pour content-based filtering ; vide tolérable car compensé par title+features."
-        },
-        {
-          "column": "categories",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 1084,
-          "empty_pct": 0.3797,
-          "effective_missing_pct": 0.3797,
-          "strategy": "joindre éléments en string, vide si absent",
-          "column_type": "textuelle (liste)",
-          "justification": "Taxonomie Amazon pour filtrage par genre ; vide tolérable, données complémentaires."
-        },
-        {
-          "column": "average_rating",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Signal de popularité agrégé ; NaN rare, imputation non nécessaire sauf si >5%."
-        },
-        {
-          "column": "rating_number",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Volume de notes ; NaN rare, indicateur de confiance secondaire."
-        },
-        {
-          "column": "price",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "imputation médiane (ou exclusion si trop manquant)",
-          "column_type": "numérique",
-          "justification": "Distribution asymétrique, ~24% manquant → médiane plus robuste que la moyenne."
-        },
-        {
-          "column": "author_name",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 16807,
-          "empty_pct": 5.8864,
-          "effective_missing_pct": 5.8864,
-          "strategy": "au cas par cas / hors périmètre",
-          "column_type": "catégorielle (extraite de struct)",
-          "justification": "Extrait de struct author ; vide si auteur inconnu, impact limité."
-        },
-        {
-          "column": "details_publisher",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "au cas par cas / hors périmètre",
-          "column_type": "catégorielle (extraite de struct)",
-          "justification": "Extrait de struct details ; vide tolérable, attribut catégoriel secondaire."
-        },
-        {
-          "column": "details_language",
-          "missing_count": 0,
-          "missing_pct": 0.0,
-          "empty_count": 0,
-          "empty_pct": 0.0,
-          "effective_missing_pct": 0.0,
-          "strategy": "au cas par cas / hors périmètre",
-          "column_type": "catégorielle (extraite de struct)",
-          "justification": "Extrait de struct details ; vide tolérable, quasi-constant ('English')."
-        }
-      ]
-    },
-    "temporal_post_split_union": {
       "on_interactions_raw": [
         {
           "column": "user_id",
@@ -2564,112 +1340,6 @@
         "html_noise_pct": 0.0
       }
     ],
-    "active_post_split_union": [
-      {
-        "column": "title",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 0,
-        "empty_or_blank_pct": 0.0,
-        "avg_length": 39.6,
-        "min_length": 1,
-        "max_length": 199,
-        "median_length": 36,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "subtitle",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 42583,
-        "empty_or_blank_pct": 8.552,
-        "avg_length": 21.8,
-        "min_length": 0,
-        "max_length": 64,
-        "median_length": 24,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "description",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 59302,
-        "empty_or_blank_pct": 11.9097,
-        "avg_length": 8690.0,
-        "min_length": 0,
-        "max_length": 1471451,
-        "median_length": 3524,
-        "html_noise_count": 3177,
-        "html_noise_pct": 0.638
-      },
-      {
-        "column": "categories",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 607,
-        "empty_or_blank_pct": 0.1219,
-        "avg_length": 50.6,
-        "min_length": 0,
-        "max_length": 122,
-        "median_length": 49,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "features",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 2148,
-        "empty_or_blank_pct": 0.4314,
-        "avg_length": 1274.7,
-        "min_length": 0,
-        "max_length": 15026,
-        "median_length": 1146,
-        "html_noise_count": 282,
-        "html_noise_pct": 0.0566
-      },
-      {
-        "column": "author_name",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 21240,
-        "empty_or_blank_pct": 4.2657,
-        "avg_length": 12.7,
-        "min_length": 0,
-        "max_length": 50,
-        "median_length": 13,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "details_publisher",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 0,
-        "empty_or_blank_pct": 0.0,
-        "avg_length": 38.2,
-        "min_length": 4,
-        "max_length": 127,
-        "median_length": 39,
-        "html_noise_count": 10,
-        "html_noise_pct": 0.002
-      },
-      {
-        "column": "details_language",
-        "present": true,
-        "non_null_count": 497931,
-        "empty_or_blank_count": 0,
-        "empty_or_blank_pct": 0.0,
-        "avg_length": 6.9,
-        "min_length": 4,
-        "max_length": 23,
-        "median_length": 7,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      }
-    ],
     "temporal_pre_split": [
       {
         "column": "title",
@@ -2775,112 +1445,6 @@
         "html_noise_count": 0,
         "html_noise_pct": 0.0
       }
-    ],
-    "temporal_post_split_union": [
-      {
-        "column": "title",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 0,
-        "empty_or_blank_pct": 0.0,
-        "avg_length": 46.2,
-        "min_length": 2,
-        "max_length": 204,
-        "median_length": 39,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "subtitle",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 29655,
-        "empty_or_blank_pct": 10.3863,
-        "avg_length": 18.7,
-        "min_length": 0,
-        "max_length": 62,
-        "median_length": 14,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "description",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 95099,
-        "empty_or_blank_pct": 33.3072,
-        "avg_length": 3827.1,
-        "min_length": 0,
-        "max_length": 145878,
-        "median_length": 1350,
-        "html_noise_count": 437,
-        "html_noise_pct": 0.1531
-      },
-      {
-        "column": "categories",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 1084,
-        "empty_or_blank_pct": 0.3797,
-        "avg_length": 50.4,
-        "min_length": 0,
-        "max_length": 122,
-        "median_length": 49,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "features",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 4052,
-        "empty_or_blank_pct": 1.4192,
-        "avg_length": 1362.4,
-        "min_length": 0,
-        "max_length": 7323,
-        "median_length": 1245,
-        "html_noise_count": 175,
-        "html_noise_pct": 0.0613
-      },
-      {
-        "column": "author_name",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 16807,
-        "empty_or_blank_pct": 5.8864,
-        "avg_length": 12.3,
-        "min_length": 0,
-        "max_length": 35,
-        "median_length": 12,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      },
-      {
-        "column": "details_publisher",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 0,
-        "empty_or_blank_pct": 0.0,
-        "avg_length": 31.8,
-        "min_length": 4,
-        "max_length": 114,
-        "median_length": 34,
-        "html_noise_count": 1,
-        "html_noise_pct": 0.0004
-      },
-      {
-        "column": "details_language",
-        "present": true,
-        "non_null_count": 285521,
-        "empty_or_blank_count": 0,
-        "empty_or_blank_pct": 0.0,
-        "avg_length": 6.9,
-        "min_length": 4,
-        "max_length": 19,
-        "median_length": 7,
-        "html_noise_count": 0,
-        "html_noise_pct": 0.0
-      }
     ]
   },
   "cleaning_reports": {
@@ -2901,23 +1465,6 @@
         "interaction_duplicates": 10947
       }
     },
-    "active_post_split_union": {
-      "before": {
-        "n_rows": 497931,
-        "n_items": 45073,
-        "n_users": 10847
-      },
-      "after": {
-        "n_rows": 497931,
-        "n_items": 45073,
-        "n_users": 10847
-      },
-      "dropped_rows": 0,
-      "dropped_reason": {
-        "missing_key_cols": 0,
-        "interaction_duplicates": 0
-      }
-    },
     "temporal_pre_split": {
       "before": {
         "n_rows": 289949,
@@ -2933,23 +1480,6 @@
       "dropped_reason": {
         "missing_key_cols": 0,
         "interaction_duplicates": 4428
-      }
-    },
-    "temporal_post_split_union": {
-      "before": {
-        "n_rows": 285521,
-        "n_items": 22007,
-        "n_users": 6739
-      },
-      "after": {
-        "n_rows": 285521,
-        "n_items": 22007,
-        "n_users": 6739
-      },
-      "dropped_rows": 0,
-      "dropped_reason": {
-        "missing_key_cols": 0,
-        "interaction_duplicates": 0
       }
     }
   },
@@ -2988,75 +1518,7 @@
       },
       "residual_key_nan_ok": true
     },
-    "active_post_split_union": {
-      "residual_pair_duplicates": 0,
-      "residual_pair_duplicates_ok": true,
-      "rating_post_clean": {
-        "column": "rating",
-        "present": true,
-        "count": 497931,
-        "min": 1.0,
-        "max": 5.0,
-        "mean": 4.247,
-        "median": 5.0,
-        "out_of_range_count": 0,
-        "out_of_range_pct": 0.0,
-        "valid_range": [
-          1.0,
-          5.0
-        ],
-        "ok": true
-      },
-      "parent_asin_integrity": {
-        "items_before": 45073,
-        "items_after": 45073,
-        "items_lost": 0,
-        "items_lost_pct": 0.0,
-        "ok": true
-      },
-      "residual_key_nan": {
-        "user_id": 0,
-        "parent_asin": 0,
-        "rating": 0,
-        "timestamp": 0
-      },
-      "residual_key_nan_ok": true
-    },
     "temporal_pre_split": {
-      "residual_pair_duplicates": 0,
-      "residual_pair_duplicates_ok": true,
-      "rating_post_clean": {
-        "column": "rating",
-        "present": true,
-        "count": 285521,
-        "min": 1.0,
-        "max": 5.0,
-        "mean": 4.4439,
-        "median": 5.0,
-        "out_of_range_count": 0,
-        "out_of_range_pct": 0.0,
-        "valid_range": [
-          1.0,
-          5.0
-        ],
-        "ok": true
-      },
-      "parent_asin_integrity": {
-        "items_before": 22007,
-        "items_after": 22007,
-        "items_lost": 0,
-        "items_lost_pct": 0.0,
-        "ok": true
-      },
-      "residual_key_nan": {
-        "user_id": 0,
-        "parent_asin": 0,
-        "rating": 0,
-        "timestamp": 0
-      },
-      "residual_key_nan_ok": true
-    },
-    "temporal_post_split_union": {
       "residual_pair_duplicates": 0,
       "residual_pair_duplicates_ok": true,
       "rating_post_clean": {
@@ -3097,18 +1559,8 @@
       "n_rows": 497931,
       "n_cols": 15
     },
-    "active_post_split_union": {
-      "path": "data/joining/active_post_split_union_clean_joined.parquet",
-      "n_rows": 497931,
-      "n_cols": 15
-    },
     "temporal_pre_split": {
       "path": "data/joining/temporal_pre_split_clean_joined.parquet",
-      "n_rows": 285521,
-      "n_cols": 15
-    },
-    "temporal_post_split_union": {
-      "path": "data/joining/temporal_post_split_union_clean_joined.parquet",
       "n_rows": 285521,
       "n_cols": 15
     }
@@ -3134,30 +1586,18 @@
     "statement": "P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).",
     "interaction_targets": [
       "active_pre_split",
-      "active_post_split_union",
-      "temporal_pre_split",
-      "temporal_post_split_union"
+      "temporal_pre_split"
     ],
     "rows_by_target": {
       "active_pre_split": 508878,
-      "active_post_split_union": 497931,
-      "temporal_pre_split": 289949,
-      "temporal_post_split_union": 285521
+      "temporal_pre_split": 289949
     },
     "paths_by_target": {
       "active_pre_split": [
         "data/processed/sample-active-users/active_users_filtered.parquet"
       ],
-      "active_post_split_union": [
-        "data/processed/sample-active-users/splits/train.parquet",
-        "data/processed/sample-active-users/splits/test.parquet"
-      ],
       "temporal_pre_split": [
         "data/processed/sample-temporal/temporal_filtered.parquet"
-      ],
-      "temporal_post_split_union": [
-        "data/processed/sample-temporal/splits/train.parquet",
-        "data/processed/sample-temporal/splits/test.parquet"
       ]
     },
     "methodological_note": "Aucun nouvel échantillonnage massif du corpus complet n'est effectué; les jeux issus de P1 sont réexploités pour la fusion avec meta_Books."

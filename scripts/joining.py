@@ -165,16 +165,16 @@ def get_manifest(
             "kind": "single",
             "paths": [str(base / "sample-active-users" / "active_users_filtered.parquet")],
         },
-        "active_post_split_union": {
-            "stage": "post_split",
-            "variant": "active",
-            "role": "interactions",
-            "kind": "union",
-            "paths": [
-                str(base / "sample-active-users" / "splits" / "train.parquet"),
-                str(base / "sample-active-users" / "splits" / "test.parquet"),
-            ],
-        },
+        # "active_post_split_union": {
+        #     "stage": "post_split",
+        #     "variant": "active",
+        #     "role": "interactions",
+        #     "kind": "union",
+        #     "paths": [
+        #         str(base / "sample-active-users" / "splits" / "train.parquet"),
+        #         str(base / "sample-active-users" / "splits" / "test.parquet"),
+        #     ],
+        # },
         "temporal_pre_split": {
             "stage": "pre_split",
             "variant": "temporal",
@@ -182,16 +182,16 @@ def get_manifest(
             "kind": "single",
             "paths": [str(base / "sample-temporal" / "temporal_filtered.parquet")],
         },
-        "temporal_post_split_union": {
-            "stage": "post_split",
-            "variant": "temporal",
-            "role": "interactions",
-            "kind": "union",
-            "paths": [
-                str(base / "sample-temporal" / "splits" / "train.parquet"),
-                str(base / "sample-temporal" / "splits" / "test.parquet"),
-            ],
-        },
+        # "temporal_post_split_union": {
+        #     "stage": "post_split",
+        #     "variant": "temporal",
+        #     "role": "interactions",
+        #     "kind": "union",
+        #     "paths": [
+        #         str(base / "sample-temporal" / "splits" / "train.parquet"),
+        #         str(base / "sample-temporal" / "splits" / "test.parquet"),
+        #     ],
+        # },
         "metadata": {
             "stage": "raw",
             "variant": "meta_books",
@@ -1425,12 +1425,13 @@ def save_joined_dataset(
     path = out / f"{name}_joined.parquet"
     if verbose:
         print(f"path: {path}")
-
-    for col in df.columns:
-        types = df[col].dropna().apply(type).value_counts()
-        if len(types) > 1 and verbose:
-            print(f"\nMIXED TYPES in {col}:")
-            print(f"\n{types}")
+    
+    if verbose: 
+        for col in df.columns:
+            types = df[col].dropna().apply(type).value_counts()
+            if len(types) > 1 and verbose:
+                print(f"\nMIXED TYPES in {col}:")
+                print(f"\n{types}")
 
     df.to_parquet(path, index=False, engine='pyarrow')
 
