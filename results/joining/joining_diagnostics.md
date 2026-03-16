@@ -1,6 +1,6 @@
 # Diagnostic Task 0 — Préparation des données (P2)
 
-- generated_at: 2026-03-16T12:29:36
+- generated_at: 2026-03-16T14:24:13
 
 ## A. Réutilisation du sous-ensemble de travail
 - note: `P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).`
@@ -131,17 +131,17 @@
 ## E. Attributs exploitables
 
 ### active_pre_split
-- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp']`
+- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp', 'text']`
 - metadata_text_kept: `['title', 'subtitle', 'features', 'description', 'categories', 'author', 'details']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'text', 'images', 'asin', 'helpful_vote', 'verified_purchase']`
+- ignored_interactions_cols: `['title', 'images', 'asin', 'helpful_vote', 'verified_purchase']`
 - ignored_metadata_cols: `['main_category', 'images', 'videos', 'store', 'bought_together']`
 
 ### temporal_pre_split
-- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp']`
+- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp', 'text']`
 - metadata_text_kept: `['title', 'subtitle', 'features', 'description', 'categories', 'author', 'details']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'text', 'asin', 'helpful_vote', 'verified_purchase']`
+- ignored_interactions_cols: `['title', 'asin', 'helpful_vote', 'verified_purchase']`
 - ignored_metadata_cols: `['main_category', 'images', 'videos', 'store', 'bought_together']`
 
 ## F. Valeurs manquantes et stratégie
@@ -156,6 +156,7 @@
 | parent_asin | clé (identifiant) | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable. |
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
+| text | clé (identifiant) | 0.0% | 0.0006% | 0.0006% | au cas par cas / hors périmètre | — |
 
 #### Métadonnées globales
 
@@ -181,6 +182,7 @@
 | parent_asin | clé (identifiant) | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable. |
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
+| text | clé (identifiant) | 0.0% | 0.0004% | 0.0004% | au cas par cas / hors périmètre | — |
 | title | textuelle (scalaire) | 0.0% | 0.0% | 0.0% | remplacer NaN par chaîne vide | Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description. |
 | subtitle | textuelle (scalaire) | 0.0% | 8.552% | 8.552% | remplacer NaN par chaîne vide | Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation. |
 | features | textuelle (liste) | 0.0% | 0.4314% | 0.4314% | joindre éléments en string, vide si absent | Points clés marketing ; vide tolérable, données complémentaires au content-based. |
@@ -203,6 +205,7 @@
 | parent_asin | clé (identifiant) | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable. |
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
+| text | clé (identifiant) | 0.0% | 0.0017% | 0.0017% | au cas par cas / hors périmètre | — |
 
 #### Métadonnées globales
 
@@ -228,6 +231,7 @@
 | parent_asin | clé (identifiant) | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Clé de jointure obligatoire — toute ligne sans parent_asin est inutilisable. |
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
+| text | clé (identifiant) | 0.0% | 0.0018% | 0.0018% | au cas par cas / hors périmètre | — |
 | title | textuelle (scalaire) | 0.0% | 0.0% | 0.0% | remplacer NaN par chaîne vide | Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description. |
 | subtitle | textuelle (scalaire) | 0.0% | 10.3863% | 10.3863% | remplacer NaN par chaîne vide | Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation. |
 | features | textuelle (liste) | 0.0% | 1.4192% | 1.4192% | joindre éléments en string, vide si absent | Points clés marketing ; vide tolérable, données complémentaires au content-based. |
@@ -310,12 +314,12 @@
 ### active_pre_split
 - path: `data/joining/active_pre_split_clean_joined.parquet`
 - rows: `497931`
-- cols: `15`
+- cols: `16`
 
 ### temporal_pre_split
 - path: `data/joining/temporal_pre_split_clean_joined.parquet`
 - rows: `285521`
-- cols: `15`
+- cols: `16`
 
 ## H. Usage des colonnes par tâche
 
@@ -333,3 +337,53 @@
 - `details_publisher`: Variable catégorielle — éditeur
 - `details_language`: Variable catégorielle — langue
 - `author_name`: Variable catégorielle — auteur (partagé avec contenu)
+
+## I. Split temporel train / test
+
+### active_pre_split
+
+**Méthode** : `temporal_per_user`
+
+**Règle** : n_test = max(1, floor(n_total × 0.2)), borné à n_total − 1. Utilisateurs avec <3 interactions → train uniquement.
+
+**Justification** : Split temporel : on entraîne sur le passé, on évalue sur le futur. Simule un scénario de déploiement réaliste. Utilisateurs avec <3 interactions → train only (pas assez d'historique pour construire un profil ET tester).
+
+| métrique | train | test |
+|----------|-------|------|
+| interactions | 402,327 | 95,604 |
+| utilisateurs | 10,847 | 10,844 |
+| items | 44,402 | 31,466 |
+| ratio effectif | 80.80% | 19.20% |
+
+- Users train-only (< 3 interactions) : **3**
+
+- Chaque user test ∈ train : **OK** (violateurs : 0)
+- Items test-only : **671** (2.1325%)
+  - Items test-only ont une représentation metadata (TF-IDF sur title/description) même sans interaction train — acceptable pour un content-based system.
+
+- `data/joining/active_pre_split/train_interactions.parquet`
+- `data/joining/active_pre_split/test_interactions.parquet`
+
+### temporal_pre_split
+
+**Méthode** : `temporal_per_user`
+
+**Règle** : n_test = max(1, floor(n_total × 0.2)), borné à n_total − 1. Utilisateurs avec <3 interactions → train uniquement.
+
+**Justification** : Split temporel : on entraîne sur le passé, on évalue sur le futur. Simule un scénario de déploiement réaliste. Utilisateurs avec <3 interactions → train only (pas assez d'historique pour construire un profil ET tester).
+
+| métrique | train | test |
+|----------|-------|------|
+| interactions | 230,938 | 54,583 |
+| utilisateurs | 6,739 | 6,737 |
+| items | 21,224 | 13,145 |
+| ratio effectif | 80.88% | 19.12% |
+
+- Users train-only (< 3 interactions) : **2**
+
+- Chaque user test ∈ train : **OK** (violateurs : 0)
+- Items test-only : **783** (5.9566%)
+  - Items test-only ont une représentation metadata (TF-IDF sur title/description) même sans interaction train — acceptable pour un content-based system.
+
+- `data/joining/temporal_pre_split/train_interactions.parquet`
+- `data/joining/temporal_pre_split/test_interactions.parquet`

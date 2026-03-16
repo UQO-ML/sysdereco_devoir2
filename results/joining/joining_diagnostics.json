@@ -406,7 +406,8 @@
         "user_id",
         "parent_asin",
         "rating",
-        "timestamp"
+        "timestamp",
+        "text"
       ],
       "metadata_text_kept": [
         "title",
@@ -437,7 +438,6 @@
       ],
       "ignored_interactions_cols": [
         "title",
-        "text",
         "images",
         "asin",
         "helpful_vote",
@@ -455,6 +455,7 @@
         "parent_asin": "Clé de jointure commune interactions ↔ metadata.",
         "rating": "Note attribuée par l'utilisateur, variable cible du système de recommandation.",
         "timestamp": "Horodatage de l'interaction, nécessaire pour le split temporel.",
+        "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
         "title": "Titre du livre, exploitable pour la représentation textuelle (TF-IDF, embeddings).",
         "subtitle": "Sous-titre du livre, complément textuel du titre.",
         "features": "Points clés marketing, contenu textuel complémentaire.",
@@ -467,7 +468,6 @@
         "price": "Prix du livre, 23.9% manquant → imputation médiane retenue car distribution asymétrique."
       },
       "exclusion_reasons": {
-        "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
         "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
         "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
         "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
@@ -483,7 +483,8 @@
         "user_id",
         "parent_asin",
         "rating",
-        "timestamp"
+        "timestamp",
+        "text"
       ],
       "metadata_text_kept": [
         "title",
@@ -514,7 +515,6 @@
       ],
       "ignored_interactions_cols": [
         "title",
-        "text",
         "asin",
         "helpful_vote",
         "verified_purchase"
@@ -531,6 +531,7 @@
         "parent_asin": "Clé de jointure commune interactions ↔ metadata.",
         "rating": "Note attribuée par l'utilisateur, variable cible du système de recommandation.",
         "timestamp": "Horodatage de l'interaction, nécessaire pour le split temporel.",
+        "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
         "title": "Titre du livre, exploitable pour la représentation textuelle (TF-IDF, embeddings).",
         "subtitle": "Sous-titre du livre, complément textuel du titre.",
         "features": "Points clés marketing, contenu textuel complémentaire.",
@@ -543,7 +544,6 @@
         "price": "Prix du livre, 23.9% manquant → imputation médiane retenue car distribution asymétrique."
       },
       "exclusion_reasons": {
-        "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
         "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
         "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
         "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
@@ -601,6 +601,17 @@
           "strategy": "supprimer lignes incomplètes (clé obligatoire)",
           "column_type": "numérique",
           "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
+        },
+        {
+          "column": "text",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 3,
+          "empty_pct": 0.0006,
+          "effective_missing_pct": 0.0006,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
         }
       ],
       "on_meta_global": [
@@ -770,6 +781,17 @@
           "strategy": "supprimer lignes incomplètes (clé obligatoire)",
           "column_type": "numérique",
           "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
+        },
+        {
+          "column": "text",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 2,
+          "empty_pct": 0.0004,
+          "effective_missing_pct": 0.0004,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
         },
         {
           "column": "title",
@@ -939,6 +961,17 @@
           "strategy": "supprimer lignes incomplètes (clé obligatoire)",
           "column_type": "numérique",
           "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
+        },
+        {
+          "column": "text",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 5,
+          "empty_pct": 0.0017,
+          "effective_missing_pct": 0.0017,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
         }
       ],
       "on_meta_global": [
@@ -1108,6 +1141,17 @@
           "strategy": "supprimer lignes incomplètes (clé obligatoire)",
           "column_type": "numérique",
           "justification": "Nécessaire au split temporel train/test — ligne inutilisable sans date."
+        },
+        {
+          "column": "text",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 5,
+          "empty_pct": 0.0018,
+          "effective_missing_pct": 0.0018,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
         },
         {
           "column": "title",
@@ -1557,12 +1601,12 @@
     "active_pre_split": {
       "path": "data/joining/active_pre_split_clean_joined.parquet",
       "n_rows": 497931,
-      "n_cols": 15
+      "n_cols": 16
     },
     "temporal_pre_split": {
       "path": "data/joining/temporal_pre_split_clean_joined.parquet",
       "n_rows": 285521,
-      "n_cols": 15
+      "n_cols": 16
     }
   },
   "column_purpose": {
@@ -1580,6 +1624,76 @@
       "details_publisher": "Variable catégorielle — éditeur",
       "details_language": "Variable catégorielle — langue",
       "author_name": "Variable catégorielle — auteur (partagé avec contenu)"
+    }
+  },
+  "split_reports": {
+    "active_pre_split": {
+      "method": "temporal_per_user",
+      "test_ratio_target": 0.2,
+      "min_interactions": 3,
+      "total_interactions": 497931,
+      "total_users": 10847,
+      "users_train_only_few_interactions": 3,
+      "users_splittable": 10844,
+      "train": {
+        "n_rows": 402327,
+        "n_users": 10847,
+        "n_items": 44402
+      },
+      "test": {
+        "n_rows": 95604,
+        "n_users": 10844,
+        "n_items": 31466
+      },
+      "actual_train_ratio": 0.808,
+      "actual_test_ratio": 0.192,
+      "checks": {
+        "all_test_users_in_train": true,
+        "test_only_users_count": 0,
+        "test_only_items_count": 671,
+        "test_only_items_pct": 2.1325,
+        "test_only_items_note": "Items test-only ont une représentation metadata (TF-IDF sur title/description) même sans interaction train — acceptable pour un content-based system."
+      },
+      "justification": "Split temporel : on entraîne sur le passé, on évalue sur le futur. Simule un scénario de déploiement réaliste. Utilisateurs avec <3 interactions → train only (pas assez d'historique pour construire un profil ET tester).",
+      "rule": "n_test = max(1, floor(n_total × 0.2)), borné à n_total − 1. Utilisateurs avec <3 interactions → train uniquement.",
+      "paths": {
+        "train_path": "data/joining/active_pre_split/train_interactions.parquet",
+        "test_path": "data/joining/active_pre_split/test_interactions.parquet"
+      }
+    },
+    "temporal_pre_split": {
+      "method": "temporal_per_user",
+      "test_ratio_target": 0.2,
+      "min_interactions": 3,
+      "total_interactions": 285521,
+      "total_users": 6739,
+      "users_train_only_few_interactions": 2,
+      "users_splittable": 6737,
+      "train": {
+        "n_rows": 230938,
+        "n_users": 6739,
+        "n_items": 21224
+      },
+      "test": {
+        "n_rows": 54583,
+        "n_users": 6737,
+        "n_items": 13145
+      },
+      "actual_train_ratio": 0.8088,
+      "actual_test_ratio": 0.1912,
+      "checks": {
+        "all_test_users_in_train": true,
+        "test_only_users_count": 0,
+        "test_only_items_count": 783,
+        "test_only_items_pct": 5.9566,
+        "test_only_items_note": "Items test-only ont une représentation metadata (TF-IDF sur title/description) même sans interaction train — acceptable pour un content-based system."
+      },
+      "justification": "Split temporel : on entraîne sur le passé, on évalue sur le futur. Simule un scénario de déploiement réaliste. Utilisateurs avec <3 interactions → train only (pas assez d'historique pour construire un profil ET tester).",
+      "rule": "n_test = max(1, floor(n_total × 0.2)), borné à n_total − 1. Utilisateurs avec <3 interactions → train uniquement.",
+      "paths": {
+        "train_path": "data/joining/temporal_pre_split/train_interactions.parquet",
+        "test_path": "data/joining/temporal_pre_split/test_interactions.parquet"
+      }
     }
   },
   "p1_reuse_note": {

@@ -41,7 +41,7 @@ class SourceInfo:
 
 _HTML_PATTERN = re.compile(r"<[^>]+>|&[a-zA-Z]+;|&\#\d+;")
 
-INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp"]
+INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp", "text"]
 
 METADATA_SCALAR_COLS = ["title", "subtitle"]
 METADATA_LIST_COLS = ["features", "description", "categories"]

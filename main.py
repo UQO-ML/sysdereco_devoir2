@@ -179,12 +179,7 @@ def precursor():
         split_and_save()
         flush_ram()
 
-        # -- Résumé -------------------------------------------------------
 
-        elapsed = time.time() - t_start
-        print(f"\n{'=' * 70}")
-        print(f"  Pipeline complet en {elapsed:.1f}s")
-        print(f"{'=' * 70}")
 
     else:
         print(f"   Conversion Dataset jsonl_to_parquet_conversion a échoué  : {result}")
