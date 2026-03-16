@@ -207,6 +207,8 @@ def main():
         print("\n Echantillon present \n")
     else:
         precursor()
+        
+        gc.collect()
 
     if _joining_files_checker() and os.path.isfile("results/joining/joining_diagnostics.md"):
         cli_print_md_results()    
