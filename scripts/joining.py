@@ -375,9 +375,10 @@ def load_target_df(
 
     if verbose:
         print(
-            f"\nload_target_df \n"
-            f"kind: {kind}, paths: {paths} \n"
-            f"columns: {columns} \n"
+            "\nload_target_df()",
+            f"kind: {kind}\n",
+            f"paths: {paths}\n"
+            f"columns: {columns} \n",
         )
     if kind == "single":
         return pd.read_parquet(paths[0], columns=columns, 
@@ -398,7 +399,10 @@ def load_target_df(
 
 
 
-def check_required_columns(df: pd.DataFrame, required_cols: set[str]) -> Dict[str, Any]:
+def check_required_columns(
+    df: pd.DataFrame, 
+    required_cols: set[str]
+) -> Dict[str, Any]:
     present = set(df.columns)
     missing = sorted(required_cols - present)
     return {
@@ -942,12 +946,13 @@ def build_joined_dataset(
 ) -> pd.DataFrame:
 
     if verbose:
-        print("\nbuild_joined_dataset\n")
+        print("\nbuild_joined_dataset()")
     inter_df = inter_df.copy()
     inter_df["parent_asin"] = inter_df["parent_asin"].astype("string")
     if verbose:
-        print(f"len(inter_df.columns): {len(inter_df.columns)}\n"
-            f"\ninter_df.columns: {inter_df.columns}\n"
+        print(
+            f"len(inter_df.columns): {len(inter_df.columns)}\n"
+            f"inter_df.columns: {inter_df.columns}"
         )
 
 
@@ -955,7 +960,7 @@ def build_joined_dataset(
     if verbose:
         print(
             f"len(keep): {len(keep)}\n"
-            f"keep: {keep}\n")
+            f"keep: {keep}")
     
     meta_slim = meta_df[keep].drop_duplicates(subset=["parent_asin"], keep="first")
     if verbose:
@@ -986,6 +991,7 @@ def clean_joined_dataset(
     -------
     (cleaned_df, cleaning_report)
     """
+    print("\nclean_joined_dataset()")
     n_before = len(df)
     items_before = df["parent_asin"].nunique()
     users_before = df["user_id"].nunique() if "user_id" in df.columns else None
@@ -1020,7 +1026,7 @@ def clean_joined_dataset(
     }
 
     if verbose:
-        print(f"\nclean_joined_dataset\n"
+        print(
             f"[clean] {n_before} → {n_after} lignes "
               f"(−{n_before - n_after}: keys={drop_reasons.get('missing_key_cols', 0)}, "
               f"dups={drop_reasons.get('interaction_duplicates', 0)})\n")
@@ -1174,7 +1180,7 @@ def save_diagnostics(
                          f"non convertibles=`{ts.get('unconvertible_count', 0)}`, "
                          f"ok=`{ts.get('ok')}`")
             for w in ts.get("warnings", []):
-                lines.append(f"  - ⚠ {w}")
+                lines.append(f"  -   {w}")
         lines.append("")
 
     # ---------------------------------------------------------------
@@ -1409,17 +1415,16 @@ def save_joined_dataset(
 ) -> str:
     if verbose:
         print(
-            "\nsave_joined_dataset\n"
+            "\nsave_joined_dataset()\n",
             f"out_dir: {out_dir}\n",
-            f"len(df.columns): {len(df.columns)}\n"
-            f"df.columns: {df.columns}\n"
-            # f"df: {df}\n"
+            f"len(df.columns): {len(df.columns)}\n",
+            f"df.columns: {df.columns}"
         )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{name}_joined.parquet"
     if verbose:
-        print(f"\npath: {path}")
+        print(f"path: {path}")
 
     for col in df.columns:
         types = df[col].dropna().apply(type).value_counts()
@@ -1476,8 +1481,8 @@ def run_all(
     meta_cols = ["parent_asin"] + METADATA_TEXT_COLS + METADATA_STRUCT_COLS
     if verbose:
         print(
-            f"run_all()"
-            f"\nmeta_cols: {meta_cols}"
+            f"\nrun_all()\n"
+            f"meta_cols: {meta_cols}\n"
         )
     meta_df = load_target_df(meta_cfg, meta_cols, verbose=verbose)
     meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
@@ -1556,8 +1561,8 @@ def run_all(
         meta_keep = ex["metadata_text_kept"] + ex["metadata_struct_kept"]
         if verbose:
             print(
-                f"run_all()"
-                f"meta_keep: {meta_keep}")
+                f"\nrun_all()\n"
+                f"meta_keep: {meta_keep}\n")
         joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep, verbose=verbose)
 
         # 4b) text quality (avant nettoyage, sur données normalisées)
@@ -1576,9 +1581,9 @@ def run_all(
 
         if verbose:
             print(
-                # f"\njoined_df: {joined_df}"
-                f"\nlen(joined_df.columns).: {len(joined_df.columns)}"
-                f"\njoined_df.columns: {joined_df.columns}"
+                "\nrun_all()\n"
+                f"len(joined_df.columns): {len(joined_df.columns)}\n"
+                f"joined_df.columns: {joined_df.columns}\n"
             )
 
         # 7) Missingness sur dataset joint nettoyé
@@ -1749,7 +1754,7 @@ def cli_print_results(
             print(f"      timestamp: {ts.get('min_date', 'N/A')} → {ts.get('max_date', 'N/A')}, "
                   f"dtype={ts.get('dtype')} → {status}")
             for w in ts.get("warnings", []):
-                print(f"        ⚠ {w}")
+                print(f"          {w}")
 
     # ------------------------------------------------------------------
     # 3) Qualité de jointure interactions ↔ metadata
@@ -1835,7 +1840,7 @@ def cli_print_results(
                 rows = miss_data.get(scope)
                 if not rows:
                     continue
-                print(f"      [{scope_labels.get(scope, scope)}]")
+                print(f"\n      [{scope_labels.get(scope, scope)}]")
                 for r in rows:
                     eff = r.get("effective_missing_pct")
                     eff_str = f", effectif={eff}%" if eff is not None else ""
@@ -1844,11 +1849,11 @@ def cli_print_results(
                     ctype = r.get("column_type", "")
                     type_str = f" [{ctype}]" if ctype else ""
                     justif = r.get("justification", "")
-                    justif_str = f" — {justif}" if justif and justif != "—" else ""
+                    justif_str = f"\n — {justif}" if justif and justif != "—" else ""
                     print(
                         f"        - {r.get('column')}{type_str}: "
                         f"NaN={r.get('missing_pct')}%{empty_str}{eff_str} "
-                        f"| {r.get('strategy')}{justif_str}"
+                        f"| {r.get('strategy')}{justif_str}\n",
                     )
         else:
             for r in miss_data:
