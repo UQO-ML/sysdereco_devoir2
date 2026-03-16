@@ -1,6 +1,6 @@
 # Diagnostic Task 0 — Préparation des données (P2)
 
-- generated_at: 2026-03-16T00:15:31
+- generated_at: 2026-03-16T09:40:12
 
 ## A. Réutilisation du sous-ensemble de travail
 - note: `P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).`
@@ -72,6 +72,19 @@
 - size_bytes: `4696897350`
 - paths: `['data/raw/parquet/meta_Books.parquet']`
 - columns names: `['main_category', 'title', 'subtitle', 'author', 'average_rating', 'rating_number', 'features', 'description', 'price', 'images', 'videos', 'store', 'categories', 'details', 'parent_asin', 'bought_together']`
+
+
+### active_pre_split
+- chemin de sauvegarde: `data/joining/active_pre_split_clean_joined.parquet`
+
+### active_post_split_union
+- chemin de sauvegarde: `data/joining/active_post_split_union_clean_joined.parquet`
+
+### temporal_pre_split
+- chemin de sauvegarde: `data/joining/temporal_pre_split_clean_joined.parquet`
+
+### temporal_post_split_union
+- chemin de sauvegarde: `data/joining/temporal_post_split_union_clean_joined.parquet`
 
 ## C. Vérifications schéma et clés (`parent_asin`)
 

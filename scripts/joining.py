@@ -942,23 +942,25 @@ def build_joined_dataset(
 ) -> pd.DataFrame:
 
     if verbose:
-        print("\nbuild_joined_dataset")
+        print("\nbuild_joined_dataset\n")
     inter_df = inter_df.copy()
     inter_df["parent_asin"] = inter_df["parent_asin"].astype("string")
     if verbose:
-        print(f"\nlen(inter_df.columns): {len(inter_df.columns)}\n"
-            f"inter_df.columns: {inter_df.columns}")
+        print(f"len(inter_df.columns): {len(inter_df.columns)}\n"
+            f"\ninter_df.columns: {inter_df.columns}\n"
+        )
 
 
     keep = ["parent_asin"] + [c for c in meta_keep_cols if c in meta_df.columns]
     if verbose:
-        print(f"\nlen(keep): {len(keep)}\n")
-        print(f"keep: {keep}")
+        print(
+            f"len(keep): {len(keep)}\n"
+            f"keep: {keep}\n")
     
     meta_slim = meta_df[keep].drop_duplicates(subset=["parent_asin"], keep="first")
     if verbose:
         print(
-            f"\nlen(meta_slim.columns): {len(meta_slim.columns)}\n"
+            f"len(meta_slim.columns): {len(meta_slim.columns)}\n"
             f"meta_slim.columns: {meta_slim.columns}\n"
         )
     
@@ -1018,9 +1020,10 @@ def clean_joined_dataset(
     }
 
     if verbose:
-        print(f"\n[clean] {n_before} → {n_after} lignes "
+        print(f"\nclean_joined_dataset\n"
+            f"[clean] {n_before} → {n_after} lignes "
               f"(−{n_before - n_after}: keys={drop_reasons.get('missing_key_cols', 0)}, "
-              f"dups={drop_reasons.get('interaction_duplicates', 0)})")
+              f"dups={drop_reasons.get('interaction_duplicates', 0)})\n")
 
     return df, report
 
@@ -1113,6 +1116,12 @@ def save_diagnostics(
         lines.append(f"- size_bytes: `{s.get('size_bytes')}`")
         lines.append(f"- paths: `{s.get('paths')}`")
         lines.append(f"- columns names: `{s.get('columns')}`")
+        lines.append("")
+    lines.append("")
+    finals = result.get("final_datasets", {})
+    for name, f in finals.items():
+        lines.append(f"### {name}")
+        lines.append(f"- chemin de sauvegarde: `{f.get('path')}`")
         lines.append("")
 
     # ---------------------------------------------------------------
@@ -1466,7 +1475,10 @@ def run_all(
     meta_cfg = manifest["metadata"]
     meta_cols = ["parent_asin"] + METADATA_TEXT_COLS + METADATA_STRUCT_COLS
     if verbose:
-        print(f"\nmeta_cols: {meta_cols}")
+        print(
+            f"run_all()"
+            f"\nmeta_cols: {meta_cols}"
+        )
     meta_df = load_target_df(meta_cfg, meta_cols, verbose=verbose)
     meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
     meta_key_set = set(meta_df["parent_asin"].dropna().unique().tolist())
@@ -1482,7 +1494,10 @@ def run_all(
         }
     inter_cols = INTERACTION_MIN_COLS   
     if verbose:
-        print(f"inter_cols: {inter_cols}")
+        print(
+            f"\nrun_all()\n"
+            f"inter_cols: {inter_cols}\n"
+        )
     for name, cfg in manifest.items():
         if cfg["role"] != "interactions":
             continue
@@ -1540,7 +1555,9 @@ def run_all(
         # 4) final joined dataset
         meta_keep = ex["metadata_text_kept"] + ex["metadata_struct_kept"]
         if verbose:
-            print(f"meta_keep: {meta_keep}")
+            print(
+                f"run_all()"
+                f"meta_keep: {meta_keep}")
         joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep, verbose=verbose)
 
         # 4b) text quality (avant nettoyage, sur données normalisées)
