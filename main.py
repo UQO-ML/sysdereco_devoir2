@@ -15,6 +15,8 @@ import gc
 import os
 import time
 import sys
+import subprocess
+import multiprocessing
 
 from scripts.precursor import (
     RAPIDS_AVAILABLE,
@@ -206,8 +208,15 @@ def main():
     if final_files_checker:
         print("\n Echantillon present \n")
     else:
-        precursor()
-        
+        # precursor()
+        subprocess.run(
+            [sys.executable, "-c",
+             "from scripts.precursor import *; "
+             "from main import precursor; precursor()"],
+            check=True,
+        )
+        flush_ram()
+        flush_gpu()
         gc.collect()
 
     if _joining_files_checker() and os.path.isfile("results/joining/joining_diagnostics.md"):
