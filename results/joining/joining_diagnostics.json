@@ -62,7 +62,7 @@
       ],
       "details": {
         "exists": true,
-        "abs_path": "/home/kilo/work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/active_users_filtered.parquet",
+        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/active_users_filtered.parquet",
         "format": "parquet",
         "size_bytes": 318642272,
         "n_rows": 508878,
@@ -108,7 +108,7 @@
       ],
       "details": {
         "exists": true,
-        "abs_path": "/home/kilo/work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/temporal_filtered.parquet",
+        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/temporal_filtered.parquet",
         "format": "parquet",
         "size_bytes": 138036503,
         "n_rows": 289949,
@@ -137,7 +137,7 @@
       ],
       "exists": true,
       "format": "parquet",
-      "size_bytes": 4696898230,
+      "size_bytes": 4696897350,
       "n_rows": 4448181,
       "n_cols": 16,
       "columns": [
@@ -160,9 +160,9 @@
       ],
       "details": {
         "exists": true,
-        "abs_path": "/home/kilo/work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/raw/parquet/meta_Books.parquet",
+        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/raw/parquet/meta_Books.parquet",
         "format": "parquet",
-        "size_bytes": 4696898230,
+        "size_bytes": 4696897350,
         "n_rows": 4448181,
         "columns": [
           "main_category",
@@ -1494,7 +1494,7 @@
   "cleaning_reports": {
     "active_pre_split": {
       "before": {
-        "n_rows": 497931,
+        "n_rows": 508878,
         "n_items": 45073,
         "n_users": 10847
       },
@@ -1503,15 +1503,15 @@
         "n_items": 45073,
         "n_users": 10847
       },
-      "dropped_rows": 0,
+      "dropped_rows": 10947,
       "dropped_reason": {
         "missing_key_cols": 0,
-        "interaction_duplicates": 0
+        "interaction_duplicates": 10947
       }
     },
     "temporal_pre_split": {
       "before": {
-        "n_rows": 285521,
+        "n_rows": 289949,
         "n_items": 22007,
         "n_users": 6739
       },
@@ -1520,10 +1520,10 @@
         "n_items": 22007,
         "n_users": 6739
       },
-      "dropped_rows": 0,
+      "dropped_rows": 4428,
       "dropped_reason": {
         "missing_key_cols": 0,
-        "interaction_duplicates": 0
+        "interaction_duplicates": 4428
       }
     }
   },
