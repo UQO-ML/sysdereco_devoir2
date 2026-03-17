@@ -49,7 +49,6 @@ def _df_memory_mb(df: pd.DataFrame) -> float:
 
 
 def stuff():
-    # pd.set_option("display.max_columns", None)
 
 
 
