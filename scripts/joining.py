@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from datetime import datetime
 from typing import Tuple
 from math import floor
@@ -11,6 +11,7 @@ import gc
 import json
 import os
 import time
+import re
 import re
 
 import pandas as pd
@@ -386,6 +387,10 @@ def load_target_df(
             f"kind: {kind}\n",
             f"paths: {paths}\n"
             f"columns: {columns} \n",
+            "\nload_target_df()",
+            f"kind: {kind}\n",
+            f"paths: {paths}\n"
+            f"columns: {columns} \n",
         )
     if kind == "single":
         return pd.read_parquet(paths[0], columns=columns, 
@@ -406,6 +411,10 @@ def load_target_df(
 
 
 
+def check_required_columns(
+    df: pd.DataFrame, 
+    required_cols: set[str]
+) -> Dict[str, Any]:
 def check_required_columns(
     df: pd.DataFrame, 
     required_cols: set[str]
@@ -566,6 +575,10 @@ def check_duplicates(
     role: str,
 ) -> Dict[str, Any]:
     n = len(df)
+    
+    hashable_cols = [c for c in df.columns
+                    if df[c].dropna().apply(lambda v: isinstance(v, (str, int, float, bool))).all()]
+    exact_dups = int(df[hashable_cols].duplicated().sum()) if hashable_cols else 0
     
     hashable_cols = [c for c in df.columns
                     if df[c].dropna().apply(lambda v: isinstance(v, (str, int, float, bool))).all()]
@@ -954,9 +967,14 @@ def build_joined_dataset(
 
     if verbose:
         print("\nbuild_joined_dataset()")
+        print("\nbuild_joined_dataset()")
     inter_df = inter_df.copy()
     inter_df["parent_asin"] = inter_df["parent_asin"].astype("string")
     if verbose:
+        print(
+            f"len(inter_df.columns): {len(inter_df.columns)}\n"
+            f"inter_df.columns: {inter_df.columns}"
+        )
         print(
             f"len(inter_df.columns): {len(inter_df.columns)}\n"
             f"inter_df.columns: {inter_df.columns}"
@@ -968,10 +986,14 @@ def build_joined_dataset(
         print(
             f"len(keep): {len(keep)}\n"
             f"keep: {keep}")
+        print(
+            f"len(keep): {len(keep)}\n"
+            f"keep: {keep}")
     
     meta_slim = meta_df[keep].drop_duplicates(subset=["parent_asin"], keep="first")
     if verbose:
         print(
+            f"len(meta_slim.columns): {len(meta_slim.columns)}\n"
             f"len(meta_slim.columns): {len(meta_slim.columns)}\n"
             f"meta_slim.columns: {meta_slim.columns}\n"
         )
@@ -1260,6 +1282,12 @@ def save_diagnostics(
         lines.append(f"### {name}")
         lines.append(f"- chemin de sauvegarde: `{f.get('path')}`")
         lines.append("")
+    lines.append("")
+    finals = result.get("final_datasets", {})
+    for name, f in finals.items():
+        lines.append(f"### {name}")
+        lines.append(f"- chemin de sauvegarde: `{f.get('path')}`")
+        lines.append("")
 
     # ---------------------------------------------------------------
     # C) Vérifications schéma et clés
@@ -1293,6 +1321,27 @@ def save_diagnostics(
             lines.append(f"- doublons parent_asin: `{dc.get('parent_asin_duplicates')}` ({dc.get('parent_asin_duplicates_pct')}%)")
         lines.append("")
         
+    lines.append("## C3. Validation des valeurs (rating, timestamp)")
+    lines.append("")
+    val_checks = result.get("validation_checks", {})
+    for name, vc in val_checks.items():
+        lines.append(f"### {name}")
+        rt = vc.get("rating", {})
+        if rt.get("present"):
+            lines.append(f"- rating: min=`{rt.get('min')}`, max=`{rt.get('max')}`, "
+                         f"mean=`{rt.get('mean')}`, median=`{rt.get('median')}`, "
+                         f"hors intervalle=`{rt.get('out_of_range_count')}` ({rt.get('out_of_range_pct')}%), "
+                         f"ok=`{rt.get('ok')}`")
+        ts = vc.get("timestamp", {})
+        if ts.get("present"):
+            lines.append(f"- timestamp: dtype=`{ts.get('dtype')}`, "
+                         f"min=`{ts.get('min_date', 'N/A')}`, max=`{ts.get('max_date', 'N/A')}`, "
+                         f"non convertibles=`{ts.get('unconvertible_count', 0)}`, "
+                         f"ok=`{ts.get('ok')}`")
+            for w in ts.get("warnings", []):
+                lines.append(f"  -   {w}")
+        lines.append("")
+
     lines.append("## C3. Validation des valeurs (rating, timestamp)")
     lines.append("")
     val_checks = result.get("validation_checks", {})
@@ -1597,7 +1646,10 @@ def save_joined_dataset(
     if verbose:
         print(
             "\nsave_joined_dataset()\n",
+            "\nsave_joined_dataset()\n",
             f"out_dir: {out_dir}\n",
+            f"len(df.columns): {len(df.columns)}\n",
+            f"df.columns: {df.columns}"
             f"len(df.columns): {len(df.columns)}\n",
             f"df.columns: {df.columns}"
         )
@@ -1698,6 +1750,10 @@ def run_all(
             f"\nrun_all()\n"
             f"meta_cols: {meta_cols}\n"
         )
+        print(
+            f"\nrun_all()\n"
+            f"meta_cols: {meta_cols}\n"
+        )
     meta_df = load_target_df(meta_cfg, meta_cols, verbose=verbose)
     meta_df["parent_asin"] = meta_df["parent_asin"].astype("string")
     meta_key_set = set(meta_df["parent_asin"].dropna().unique().tolist())
@@ -1713,6 +1769,10 @@ def run_all(
         }
     inter_cols = INTERACTION_MIN_COLS   
     if verbose:
+        print(
+            f"\nrun_all()\n"
+            f"inter_cols: {inter_cols}\n"
+        )
         print(
             f"\nrun_all()\n"
             f"inter_cols: {inter_cols}\n"
@@ -1777,7 +1837,12 @@ def run_all(
             print(
                 f"\nrun_all()\n"
                 f"meta_keep: {meta_keep}\n")
+            print(
+                f"\nrun_all()\n"
+                f"meta_keep: {meta_keep}\n")
         joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep, verbose=verbose)
+
+        # 4b) text quality (avant nettoyage, sur données normalisées)
 
         # 4b) text quality (avant nettoyage, sur données normalisées)
         text_cols_to_check = [c for c in ["title", "subtitle", "description",
@@ -1792,13 +1857,26 @@ def run_all(
 
         # 6) Vérifications post-nettoyage
         post_clean_checks[name] = post_cleaning_checks(joined_df, items_before_clean)
+        
+        # 5) Nettoyage : suppression NaN clés + dédoublonnage interactions
+        items_before_clean = set(joined_df["parent_asin"].dropna().unique())
+        joined_df, cleaning_rpt = clean_joined_dataset(joined_df, verbose=verbose)
+        cleaning_reports[name] = cleaning_rpt
+
+        # 6) Vérifications post-nettoyage
+        post_clean_checks[name] = post_cleaning_checks(joined_df, items_before_clean)
 
         if verbose:
             print(
                 "\nrun_all()\n"
                 f"len(joined_df.columns): {len(joined_df.columns)}\n"
                 f"joined_df.columns: {joined_df.columns}\n"
+                "\nrun_all()\n"
+                f"len(joined_df.columns): {len(joined_df.columns)}\n"
+                f"joined_df.columns: {joined_df.columns}\n"
             )
+
+        # 7) Missingness sur dataset joint nettoyé
 
         # 7) Missingness sur dataset joint nettoyé
         miss_joined = missingness_report(joined_df, list(joined_df.columns))
@@ -1809,8 +1887,10 @@ def run_all(
             "on_joined_subset": miss_joined,
         }
 
+
         out_path = None
         if materialize_joined:
+            out_path = save_joined_dataset(joined_df, name=name + "_clean", out_dir="data/joining", verbose=verbose)
             out_path = save_joined_dataset(joined_df, name=name + "_clean", out_dir="data/joining", verbose=verbose)
         final_datasets[name] = {
             "path": out_path,
@@ -1843,6 +1923,8 @@ def run_all(
         "exploitable_columns": exploitable_cols,
         "missingness": missingness,
         "text_quality": text_quality_checks,
+        "cleaning_reports": cleaning_reports,
+        "post_cleaning_checks": post_clean_checks,
         "cleaning_reports": cleaning_reports,
         "post_cleaning_checks": post_clean_checks,
         "final_datasets": final_datasets,
@@ -1980,6 +2062,7 @@ def cli_print_results(
                   f"dtype={ts.get('dtype')} → {status}")
             for w in ts.get("warnings", []):
                 print(f"          {w}")
+                print(f"          {w}")
 
     # ------------------------------------------------------------------
     # 3) Qualité de jointure interactions ↔ metadata
@@ -2066,6 +2149,7 @@ def cli_print_results(
                 if not rows:
                     continue
                 print(f"\n      [{scope_labels.get(scope, scope)}]")
+                print(f"\n      [{scope_labels.get(scope, scope)}]")
                 for r in rows:
                     eff = r.get("effective_missing_pct")
                     eff_str = f", effectif={eff}%" if eff is not None else ""
@@ -2075,9 +2159,11 @@ def cli_print_results(
                     type_str = f" [{ctype}]" if ctype else ""
                     justif = r.get("justification", "")
                     justif_str = f"\n — {justif}" if justif and justif != "—" else ""
+                    justif_str = f"\n — {justif}" if justif and justif != "—" else ""
                     print(
                         f"        - {r.get('column')}{type_str}: "
                         f"NaN={r.get('missing_pct')}%{empty_str}{eff_str} "
+                        f"| {r.get('strategy')}{justif_str}\n",
                         f"| {r.get('strategy')}{justif_str}\n",
                     )
         else:
@@ -2101,6 +2187,49 @@ def cli_print_results(
             print(f"      {r.get('column')}: avg_len={r.get('avg_length')}, "
                   f"median_len={r.get('median_length')}, "
                   f"vides={r.get('empty_or_blank_count')}{html_note}")
+
+    # ------------------------------------------------------------------
+    # 5c) Nettoyage appliqué
+    # ------------------------------------------------------------------
+    print("\n[5c] Nettoyage appliqué (avant / après)")
+    cleaning = result.get("cleaning_reports", {})
+    for name, rpt in cleaning.items():
+        bef = rpt.get("before", {})
+        aft = rpt.get("after", {})
+        print(f"  • {name}")
+        print(f"      lignes: {bef.get('n_rows')} → {aft.get('n_rows')} "
+              f"(−{rpt.get('dropped_rows', 0)})")
+        print(f"      items:  {bef.get('n_items')} → {aft.get('n_items')}")
+        print(f"      users:  {bef.get('n_users')} → {aft.get('n_users')}")
+        reasons = rpt.get("dropped_reason", {})
+        if reasons:
+            for reason, count in reasons.items():
+                print(f"        → {reason}: {count}")
+
+    # ------------------------------------------------------------------
+    # 5d) Vérifications post-nettoyage
+    # ------------------------------------------------------------------
+    print("\n[5d] Vérifications post-nettoyage")
+    post_checks = result.get("post_cleaning_checks", {})
+    for name, checks in post_checks.items():
+        print(f"  • {name}")
+        res_dups = checks.get("residual_pair_duplicates", "N/A")
+        ok_tag = "OK" if checks.get("residual_pair_duplicates_ok") else "ALERTE"
+        print(f"      doublons résiduels (user,item): {res_dups} — {ok_tag}")
+
+        rating_post = checks.get("rating_post_clean", {})
+        if rating_post.get("present"):
+            r_ok = "OK" if rating_post.get("ok") else "ALERTE"
+            print(f"      rating: [{rating_post.get('min')}, {rating_post.get('max')}] "
+                  f"mean={rating_post.get('mean')} — {r_ok}")
+
+        integrity = checks.get("parent_asin_integrity", {})
+        i_ok = "OK" if integrity.get("ok") else "ALERTE"
+        print(f"      parent_asin: {integrity.get('items_before')} → "
+              f"{integrity.get('items_after')} ({i_ok})")
+
+        key_ok = "OK" if checks.get("residual_key_nan_ok") else "ALERTE"
+        print(f"      NaN clés résiduels: {checks.get('residual_key_nan')} — {key_ok}")
 
     # ------------------------------------------------------------------
     # 5c) Nettoyage appliqué

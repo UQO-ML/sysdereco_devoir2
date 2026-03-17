@@ -215,7 +215,7 @@ def main():
             check=True,
         )
         flush_ram()
-        flush_gpu()
+        flush_gpu()temporal_split_per_user
         gc.collect()
 
     if _joining_files_checker() and os.path.isfile("results/joining/joining_diagnostics.md"):
