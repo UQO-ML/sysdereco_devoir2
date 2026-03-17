@@ -6,15 +6,13 @@ from typing import Dict, List, Optional, Tuple
 import gc
 import os
 import time
-import glob
 
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix, load_npz
 
-TRAIN_PATHS = sorted(Path("data/joining").glob("*/train_interactions.parquet"))
-TRAIN_PATHS2 = sorted(glob.glob("data/joining/*/train_interactions.parquet"))
 
+TRAIN_PATHS = sorted(Path("data/joining").glob("*/train_interactions.parquet"))
 
 TFIDF_ARTIFACTS = {
     "matrix": "tfidf_matrix.npz",
@@ -22,76 +20,14 @@ TFIDF_ARTIFACTS = {
 }
 
 
-
-
-class UserProfile:
-    def __init__(
-        self,
-        verbose: bool | True,
-        t_start: float | None,
-        path: str | TRAIN_PATHS,
-    ):
-        self.verbose = verbose
-        self.t_start = t_start
-        self.path = path
-        print(f"{path}")
-        self._df: Optional[pd.DataFrame] = None
-
-    def group_by_user_id(self):
-        if self.verbose:
-            print("group_by_user_id()")
-            print(f"{self.path}")
-            if os.path.isfile(self.path) and os.path.exists(self.path):
-                train_df = self._load_dataset()
-                grouped_train_df = train_df.groupby("user_id")
-                if self.verbose:
-                    print("user_profile.group_by_user().for.if - grouped_train_df : \n"
-                        f"{grouped_train_df}\n")
-                print(f"grouped_train_df end: {(time.time() - self.t_start):.1f}")
-                del grouped_train_df
-                gc.collect()
-        print(f"group_by_user_id end: {(time.time() - self.t_start):.1f}")
-    
-    def _fmt_size(self, n_bytes: float) -> str:
-        for unit in ("B", "KiB", "MiB", "GiB"):
-            if abs(n_bytes) < 1024:
-                return f"{n_bytes:.1f} {unit}"
-            n_bytes /= 1024
-        return f"{n_bytes:.1f} TiB"
-
-    def _disk_size(self) -> str:
-        try:
-            return self._fmt_size(os.path.getsize(self.path))
-        except OSError:
-            return "N/A"
-
-    def _df_memory_mb(self) -> float:
-        return self._df.memory_usage(deep=True).sum() / (1024 * 1024)
-
-    def _load_dataset(self) -> pd.DataFrame:
-        if self.verbose:
-            print("\nload_dataset()")
-        self._df = pd.read_parquet(self.path)
-        print(f"\n{self._df},\ndisk: {self._disk_size()}, \nmemory (loaded): {self._df_memory_mb():.1f} MiB, \n{self._df.shape}, \n{self._df.columns.tolist()}\n, \n{self._df}\n")
-        print(f"load_dataset end: {(time.time() - self.t_start):.1f}\n")        
-        return self._df
-
-
-
-
-
 class DatasetManager:
     """Charge et expose un dataset d'interactions jointes."""
-    def __init__(
-        self,
-        path: str | Path,
-        verbose: bool | True,
-    ):
+
+    def __init__(self, path: str | Path, verbose: bool = True):
         self.path = Path(path)
         self.verbose = verbose
         self._df: Optional[pd.DataFrame] = None
 
-    
     @property
     def df(self) -> pd.DataFrame:
         if self._df is None:
@@ -106,17 +42,14 @@ class DatasetManager:
             print(f"[DatasetManager] {self.path.name}: "
                   f"{len(df):,} rows, {mem:.0f} MiB, {time.perf_counter()-t0:.2f}s")
         return df
-    
+
     def interactions_by_user(self) -> pd.core.groupby.DataFrameGroupBy:
         return self.df.groupby("user_id")
-    
+
     def release(self):
         del self._df
         self._df = None
         gc.collect()
-
-
-
 
 
 class ContentRepresenter:
@@ -136,13 +69,49 @@ class ContentRepresenter:
             (self.artifacts_dir / fname).exists()
             for fname in TFIDF_ARTIFACTS.values()
         )
-    
 
-    
+    def load(self) -> ContentRepresenter:
+        """Charge la matrice et le mapping depuis le disque."""
+        if not self.available:
+            raise FileNotFoundError(
+                f"TF-IDF artifacts missing in {self.artifacts_dir}. "
+                f"Expected: {list(TFIDF_ARTIFACTS.values())}"
+            )
+
+        t0 = time.perf_counter()
+
+        mat_path = self.artifacts_dir / TFIDF_ARTIFACTS["matrix"]
+        ids_path = self.artifacts_dir / TFIDF_ARTIFACTS["item_ids"]
+
+        self._matrix = load_npz(mat_path)
+        self._item_ids = np.load(ids_path, allow_pickle=True)
+        self._item_index = {asin: i for i, asin in enumerate(self._item_ids)}
+
+        if self.verbose:
+            print(f"[ContentRepresenter] loaded {mat_path.name}: "
+                  f"{self._matrix.shape}, {time.perf_counter()-t0:.2f}s")
+        return self
+
+    @property
+    def tfidf_matrix(self) -> csr_matrix:
+        if self._matrix is None:
+            raise RuntimeError("Call load() first.")
+        return self._matrix
+
+    @property
+    def item_index(self) -> Dict[str, int]:
+        if self._item_index is None:
+            raise RuntimeError("Call load() first.")
+        return self._item_index
+
+    @property
+    def n_features(self) -> int:
+        return self.tfidf_matrix.shape[1]
 
 
 class UserProfileBuilder:
     """Construit les profils utilisateurs à partir des interactions + TF-IDF chargé."""
+
     def __init__(
         self,
         dataset: DatasetManager,
@@ -152,53 +121,70 @@ class UserProfileBuilder:
         self.dataset = dataset
         self.representer = representer
         self.verbose = verbose
-    
-    def build_profiles(self) -> Dict[str, np.ndarray]:
-        """ Profil Utilisateur = moyenne pondérée (par rating)  """
 
+    def build_profiles_sparse(self) -> Tuple[np.ndarray, List[str]]:
+        """Profils via multiplication matricielle sparse.
 
+        Returns (profiles_matrix, user_ids_list)
+        où profiles_matrix[i] = profil pondéré normalisé du user user_ids_list[i].
+        """
+        t0 = time.perf_counter()
+        df = self.dataset.df
+        item_idx = self.representer.item_index
+        tfidf = self.representer.tfidf_matrix
 
+        valid_mask = df["parent_asin"].isin(item_idx)
+        df_valid = df[valid_mask]
 
-# def main() -> None:
-    # for train_path in TRAIN_PATHS:
-    #     variant_dir = train_path.parent
-    #     print(f"\n{'='*70}\n  {variant_dir.name}\n{'='*70}")
+        user_ids_unique = sorted(df_valid["user_id"].unique())
+        user_to_idx = {u: i for i, u in enumerate(user_ids_unique)}
 
-    #     # 1) Dataset
-    #     ds = DatasetManager(train_path, verbose=True)
+        row_indices = df_valid["user_id"].map(user_to_idx).values
+        col_indices = df_valid["parent_asin"].map(item_idx).values
+        weights = df_valid["rating"].values.astype(np.float32)
 
+        R = csr_matrix(
+            (weights, (row_indices, col_indices)),
+            shape=(len(user_ids_unique), tfidf.shape[0]),
+        )
 
-    #     # 2) TF-IDF pré-calculé
-    #     rep = ContentRepresenter(artifacts_dir=variant_dir)
-    #     if not rep.available:
-    #         print(f"  [SKIP] TF-IDF introuvable dans {variant_dir}")
-    #         ds.release()
-    #         continue
-    #     rep.load()
+        weight_sums = np.array(R.sum(axis=1)).ravel()
+        weight_sums[weight_sums == 0] = 1.0
 
+        profiles = (R @ tfidf).toarray() / weight_sums[:, np.newaxis]
 
-    #     # 3) Profils
-    #     builder = UserProfileBuilder(ds, rep)
-    #     profiles, user_ids = builder.build_profiles_sparse()
+        if self.verbose:
+            print(f"[UserProfileBuilder] {len(user_ids_unique):,} profiles, "
+                  f"shape={profiles.shape}, {time.perf_counter()-t0:.2f}s")
 
-    #     # ... exploitation (sauvegarde, évaluation, etc.)
-
-    #     ds.release()
-
-    #     del rep, builder, profiles
-    #     gc.collect()
-
+        return profiles, user_ids_unique
 
 
 def main() -> None:
-    for path in TRAIN_PATHS:
-        profile = UserProfile(verbose=True,
-        t_start=time.time(),
-        path=path)
-        profile.group_by_user_id()
-    return None
+    for train_path in TRAIN_PATHS:
+        variant_dir = train_path.parent
+        print(f"\n{'='*70}\n  {variant_dir.name}\n{'='*70}")
 
+        # 1) Dataset
+        ds = DatasetManager(train_path)
+
+        # 2) TF-IDF pré-calculé
+        rep = ContentRepresenter(artifacts_dir=variant_dir)
+        if not rep.available:
+            print(f"  [SKIP] TF-IDF introuvable dans {variant_dir}")
+            ds.release()
+            continue
+        rep.load()
+
+        # 3) Profils
+        builder = UserProfileBuilder(ds, rep)
+        profiles, user_ids = builder.build_profiles_sparse()
+
+
+        ds.release()
+        del rep, builder, profiles
+        gc.collect()
 
 
 if __name__ == "__main__":
-    main()    
+    main()
