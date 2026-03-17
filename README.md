@@ -33,6 +33,8 @@ python -m venv .venv
 source .venv/bin/activate   # Linux/macOS
 # .venv\Scripts\activate    # Windows
 pip install -r requirements.txt
+# Traitement des textes - spaCy
+python -m spacy download en_core_web_sm
 ```
 
 2. *(Optionnel, GPU NVIDIA CUDA 12)* - Pour l’échantillonnage RAPIDS dans `scripts/precursor.py` :
