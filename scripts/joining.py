@@ -5,13 +5,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from datetime import datetime
 from typing import Tuple
-from math import floor
+
 
 import gc
 import json
 import os
 import time
-import re
 import re
 
 import pandas as pd
@@ -411,10 +410,6 @@ def load_target_df(
 
 
 
-def check_required_columns(
-    df: pd.DataFrame, 
-    required_cols: set[str]
-) -> Dict[str, Any]:
 def check_required_columns(
     df: pd.DataFrame, 
     required_cols: set[str]
@@ -1906,6 +1901,7 @@ def run_all(
             split_reports[name] = split_rpt
             del train_df, test_df
             gc.collect()
+
 
         del inter_df, joined_df
         gc.collect()
