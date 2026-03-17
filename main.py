@@ -208,7 +208,6 @@ def main():
     if final_files_checker:
         print("\n Echantillon present \n")
     else:
-        # precursor()
         subprocess.run(
             [sys.executable, "-c",
              "from scripts.precursor import *; "
