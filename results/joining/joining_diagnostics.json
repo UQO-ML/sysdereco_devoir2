@@ -62,7 +62,7 @@
       ],
       "details": {
         "exists": true,
-        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/active_users_filtered.parquet",
+        "abs_path": "/home/kilo/work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-active-users/active_users_filtered.parquet",
         "format": "parquet",
         "size_bytes": 318642272,
         "n_rows": 508878,
@@ -108,7 +108,7 @@
       ],
       "details": {
         "exists": true,
-        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/temporal_filtered.parquet",
+        "abs_path": "/home/kilo/work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/processed/sample-temporal/temporal_filtered.parquet",
         "format": "parquet",
         "size_bytes": 138036503,
         "n_rows": 289949,
@@ -137,7 +137,7 @@
       ],
       "exists": true,
       "format": "parquet",
-      "size_bytes": 4696897350,
+      "size_bytes": 4696898230,
       "n_rows": 4448181,
       "n_cols": 16,
       "columns": [
@@ -160,9 +160,9 @@
       ],
       "details": {
         "exists": true,
-        "abs_path": "/home/kilo/Work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/raw/parquet/meta_Books.parquet",
+        "abs_path": "/home/kilo/work/Cours - UQO/Sujet Special/sysdereco_devoir2/data/raw/parquet/meta_Books.parquet",
         "format": "parquet",
-        "size_bytes": 4696897350,
+        "size_bytes": 4696898230,
         "n_rows": 4448181,
         "columns": [
           "main_category",

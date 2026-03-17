@@ -1,6 +1,6 @@
 # Diagnostic Task 0 — Préparation des données (P2)
 
-- generated_at: 2026-03-16T21:13:23
+- generated_at: 2026-03-16T21:49:50
 
 ## A. Réutilisation du sous-ensemble de travail
 - note: `P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).`
@@ -43,7 +43,7 @@
 - format: `parquet`
 - rows: `4448181`
 - cols: `16`
-- size_bytes: `4696897350`
+- size_bytes: `4696898230`
 - paths: `['data/raw/parquet/meta_Books.parquet']`
 - columns names: `['main_category', 'title', 'subtitle', 'author', 'average_rating', 'rating_number', 'features', 'description', 'price', 'images', 'videos', 'store', 'categories', 'details', 'parent_asin', 'bought_together']`
 

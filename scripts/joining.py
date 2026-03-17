@@ -962,7 +962,6 @@ def build_joined_dataset(
 
     if verbose:
         print("\nbuild_joined_dataset()")
-        print("\nbuild_joined_dataset()")
     inter_df = inter_df.copy()
     inter_df["parent_asin"] = inter_df["parent_asin"].astype("string")
     if verbose:
@@ -970,21 +969,12 @@ def build_joined_dataset(
             f"len(inter_df.columns): {len(inter_df.columns)}\n"
             f"inter_df.columns: {inter_df.columns}"
         )
-        print(
-            f"len(inter_df.columns): {len(inter_df.columns)}\n"
-            f"inter_df.columns: {inter_df.columns}"
-        )
-
 
     keep = ["parent_asin"] + [c for c in meta_keep_cols if c in meta_df.columns]
     if verbose:
         print(
             f"len(keep): {len(keep)}\n"
             f"keep: {keep}")
-        print(
-            f"len(keep): {len(keep)}\n"
-            f"keep: {keep}")
-    
     meta_slim = meta_df[keep].drop_duplicates(subset=["parent_asin"], keep="first")
     if verbose:
         print(
@@ -1832,12 +1822,8 @@ def run_all(
             print(
                 f"\nrun_all()\n"
                 f"meta_keep: {meta_keep}\n")
-            print(
-                f"\nrun_all()\n"
-                f"meta_keep: {meta_keep}\n")
         joined_df = build_joined_dataset(inter_df, meta_df, meta_keep_cols=meta_keep, verbose=verbose)
 
-        # 4b) text quality (avant nettoyage, sur données normalisées)
 
         # 4b) text quality (avant nettoyage, sur données normalisées)
         text_cols_to_check = [c for c in ["title", "subtitle", "description",
@@ -1853,25 +1839,13 @@ def run_all(
         # 6) Vérifications post-nettoyage
         post_clean_checks[name] = post_cleaning_checks(joined_df, items_before_clean)
         
-        # 5) Nettoyage : suppression NaN clés + dédoublonnage interactions
-        items_before_clean = set(joined_df["parent_asin"].dropna().unique())
-        joined_df, cleaning_rpt = clean_joined_dataset(joined_df, verbose=verbose)
-        cleaning_reports[name] = cleaning_rpt
-
-        # 6) Vérifications post-nettoyage
-        post_clean_checks[name] = post_cleaning_checks(joined_df, items_before_clean)
-
         if verbose:
             print(
                 "\nrun_all()\n"
                 f"len(joined_df.columns): {len(joined_df.columns)}\n"
                 f"joined_df.columns: {joined_df.columns}\n"
-                "\nrun_all()\n"
-                f"len(joined_df.columns): {len(joined_df.columns)}\n"
-                f"joined_df.columns: {joined_df.columns}\n"
             )
 
-        # 7) Missingness sur dataset joint nettoyé
 
         # 7) Missingness sur dataset joint nettoyé
         miss_joined = missingness_report(joined_df, list(joined_df.columns))
@@ -1885,7 +1859,6 @@ def run_all(
 
         out_path = None
         if materialize_joined:
-            out_path = save_joined_dataset(joined_df, name=name + "_clean", out_dir="data/joining", verbose=verbose)
             out_path = save_joined_dataset(joined_df, name=name + "_clean", out_dir="data/joining", verbose=verbose)
         final_datasets[name] = {
             "path": out_path,
@@ -1919,8 +1892,6 @@ def run_all(
         "exploitable_columns": exploitable_cols,
         "missingness": missingness,
         "text_quality": text_quality_checks,
-        "cleaning_reports": cleaning_reports,
-        "post_cleaning_checks": post_clean_checks,
         "cleaning_reports": cleaning_reports,
         "post_cleaning_checks": post_clean_checks,
         "final_datasets": final_datasets,
@@ -2361,7 +2332,8 @@ def main() -> None:
         verbose=True,
         include_optional_raw=False,   
         export_artifacts=True,
-        materialize_joined=True
+        materialize_joined=True,
+        do_temporal_split= True,
     )
 
     if result:
