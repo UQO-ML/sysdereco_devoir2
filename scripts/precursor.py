@@ -246,9 +246,6 @@ def _print_gpu_status(label: str = "") -> None:
 
 
 
-
-
-
 def _print_ram_status(label: str = "") -> None:
     """Affiche la mémoire RAM consommée par le processus courant (optionnel, via psutil)."""
     try:
@@ -257,7 +254,6 @@ def _print_ram_status(label: str = "") -> None:
         print(f"  [{label}] RAM process: {mem.rss / 1e9:.2f} GB")
     except ImportError:
         pass
-
 
 
 
@@ -285,6 +281,7 @@ def deterministic_sample_users(
 
     scored.sort(key=lambda x: x[0])  # smallest hashes first
     return [uid for _, uid in scored[:min(num_users, len(scored))]]
+
 
 
 def _get_free_vram_bytes(

@@ -83,7 +83,13 @@ sysdereco_devoir2/
 │       ├── active_pre_split_joined.parquet
 │       ├── active_post_split_union_joined.parquet
 │       ├── temporal_pre_split_joined.parquet
-│       └── temporal_post_split_union_joined.parquet
+│       ├── temporal_post_split_union_joined.parquet
+│       ├── active_pre_split/
+│       │   ├── train_interactions.parquet            
+│       │   └── test_interactions.parquet             
+│       └── temporal_pre_split/
+│           ├── train_interactions.parquet            
+│           └── test_interactions.parquet             
 ├── results/
 │   └── joining/
 │       ├── joining_diagnostics.json            # Diagnostic complet (machine-readable)
