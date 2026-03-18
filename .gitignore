@@ -210,6 +210,8 @@ __marimo__/
 data/raw/jsonl/*.jsonl
 data/raw/parquet/*.parquet
 data/processed/sample*
+data/tfidf/*.txt
+data/tfidf/*.npz
 *.csv
 *.parquet
 *.jsonl
