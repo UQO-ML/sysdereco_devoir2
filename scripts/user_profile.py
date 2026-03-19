@@ -76,9 +76,10 @@ class DatasetManager:
 class ItemRepresentationLoader:
     """Charge les artéfacts produits par item_representation.py."""
 
-    def __init__(self, artifacts_dir: str | Path, verbose: bool = True):
+    def __init__(self, artifacts_dir: str | Path, verbose: bool = True, notebook_mode: bool = True):
         self.dir = Path(artifacts_dir)
         self.verbose = verbose
+        self.notebook_mode = notebook_mode
         self._tfidf: Optional[csr_matrix] = None
         self._svd: Optional[np.ndarray] = None
         self._numeric: Optional[np.ndarray] = None
@@ -87,7 +88,10 @@ class ItemRepresentationLoader:
 
     @property
     def available(self) -> bool:
-        return (self.dir / ARTIFACTS_IN["tfidf_matrix"]).exists() and \
+        if self.notebook_mode:
+            return (self.dir / NOTEBOOK_ARTIFACTS_IN["tfidf_matrix"]).exists()
+        else:
+            return (self.dir / ARTIFACTS_IN["tfidf_matrix"]).exists() and \
                (self.dir / ARTIFACTS_IN["item_ids"]).exists()
 
     def load(self) -> ItemRepresentationLoader:
@@ -96,18 +100,35 @@ class ItemRepresentationLoader:
 
         t0 = time.perf_counter()
 
-        self._item_ids = np.load(self.dir / ARTIFACTS_IN["item_ids"], allow_pickle=True)
-        self._item_index = {asin: i for i, asin in enumerate(self._item_ids)}
+        if self.notebook_mode:
+            self._tfidf = load_npz(self.dir / NOTEBOOK_ARTIFACTS_IN["tfidf_matrix"])
 
-        self._tfidf = load_npz(self.dir / ARTIFACTS_IN["tfidf_matrix"])
+            df_src = pd.read_parquet(NOTEBOOK_SOURCE_PARQUET, columns=["parent_asin"])
 
-        svd_path = self.dir / ARTIFACTS_IN["svd_matrix"]
-        if svd_path.exists():
-            self._svd = np.load(svd_path)
+            if (len(df_src) != self._tfidf.shape[0]):
+                print("La matrice ne correspond pas au Dataset")
+                raise FileNotFoundError
 
-        num_path = self.dir / ARTIFACTS_IN["numeric_features"]
-        if num_path.exists():
-            self._numeric = np.load(num_path)
+            df_src["_row"] = np.arange(len(df_src))
+            dedup = df_src.drop_duplicates(subset=["parent_asin"], keep="first")
+            self._item_index = dict[str, int](zip(dedup["parent_asin"].values, dedup["_row"].values))
+            self._item_ids = dedup["parent_asin"].values
+            self._svd = None
+            self._numeric = None
+
+        else:
+            self._item_ids = np.load(self.dir / ARTIFACTS_IN["item_ids"], allow_pickle=True)
+            self._item_index = {asin: i for i, asin in enumerate(self._item_ids)}
+
+            self._tfidf = load_npz(self.dir / ARTIFACTS_IN["tfidf_matrix"])
+
+            svd_path = self.dir / ARTIFACTS_IN["svd_matrix"]
+            if svd_path.exists():
+                self._svd = np.load(svd_path)
+
+            num_path = self.dir / ARTIFACTS_IN["numeric_features"]
+            if num_path.exists():
+                self._numeric = np.load(num_path)
 
         if self.verbose:
             parts = [f"tfidf={self._tfidf.shape}"]
@@ -117,6 +138,7 @@ class ItemRepresentationLoader:
             if self._numeric is not None:
                 parts.append(f"numeric={self._numeric.shape}")
             print(f"[ItemRepLoader] {', '.join(parts)}, {time.perf_counter()-t0:.2f}s")
+
         return self
 
     @property
@@ -308,6 +330,7 @@ def build_all_profiles(
     train_path: Path,
     force: bool = False,
     verbose: bool = True,
+    notebook_mode: bool = True
 ) -> Dict[str, Any]:
     variant_dir = train_path.parent
     variant = variant_dir.name
@@ -323,7 +346,11 @@ def build_all_profiles(
 
     ds = DatasetManager(train_path, verbose=verbose)
 
-    loader = ItemRepresentationLoader(artifacts_dir=variant_dir, verbose=verbose)
+    if notebook_mode:
+        loader = ItemRepresentationLoader(artifacts_dir=NOTEBOOK_ARTIFACTS_DIR, verbose=verbose, notebook_mode=notebook_mode)
+    else:
+        loader = ItemRepresentationLoader(artifacts_dir=variant_dir, verbose=verbose, notebook_mode=notebook_mode)
+
     if not loader.available:
         print(f"  [SKIP] Artéfacts item_representation manquants dans {variant_dir}")
         return {}
@@ -360,19 +387,22 @@ def build_all_profiles(
 
 
 def main() -> None:
+    t0 = time.perf_counter()
     for train_path in TRAIN_PATHS:
-        report = build_all_profiles(train_path, force=True, verbose=True)
+        t1 = time.perf_counter()
+        report = build_all_profiles(train_path, force=True, verbose=True, notebook_mode=True)
         if report:
             tfidf_r = report.get("tfidf_profiles", {})
             svd_r = report.get("svd_profiles", {})
             print(f"\n--- Résumé {report.get('variant', '?')} ---")
             print(f"  TF-IDF: {tfidf_r.get('n_users_active', '?')} actifs, "
                   f"{tfidf_r.get('n_users_cold_start', '?')} cold-start, "
-                  f"shape={tfidf_r.get('profile_shape')}")
+                  f"shape={tfidf_r.get('profile_shape')}"
+                  f"\n Elapsed: {(time.perf_counter() - t1):.1f}s")
             if svd_r:
                 print(f"  SVD:    {svd_r.get('n_users_active', '?')} actifs, "
                       f"shape={svd_r.get('profile_shape')}")
-
+    print(f"\n Total elapse: {(time.perf_counter() - t1):.1f}s")
 
 if __name__ == "__main__":
     main()
