@@ -18,6 +18,11 @@ TRAIN_PATHS = sorted(Path("data/joining").glob("*/train_interactions.parquet"))
 
 INTERACTION_COLS = ["user_id", "parent_asin", "rating", "text"]
 
+NOTEBOOK_ARTIFACTS_DIR = Path("data/tfidf")
+NOTEBOOK_NPZ = "books_representation_sparse.npz"
+NOTEBOOK_SOURCE_PARQUET = Path("data/joining/active_pre_split_clean_joined.parquet")
+NOTEBOOK_ARTIFACTS_IN = {"tfidf_matrix": NOTEBOOK_NPZ}
+
 ARTIFACTS_IN = {
     "tfidf_matrix": "tfidf_matrix.npz",
     "svd_matrix": "tfidf_svd_matrix.npy",
@@ -106,6 +111,7 @@ class ItemRepresentationLoader:
 
         if self.verbose:
             parts = [f"tfidf={self._tfidf.shape}"]
+            print(f"{time.perf_counter()-t0:.2f}s")
             if self._svd is not None:
                 parts.append(f"svd={self._svd.shape}")
             if self._numeric is not None:
@@ -355,7 +361,7 @@ def build_all_profiles(
 
 def main() -> None:
     for train_path in TRAIN_PATHS:
-        report = build_all_profiles(train_path, force=False, verbose=True)
+        report = build_all_profiles(train_path, force=True, verbose=True)
         if report:
             tfidf_r = report.get("tfidf_profiles", {})
             svd_r = report.get("svd_profiles", {})
