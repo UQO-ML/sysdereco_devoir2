@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+path: str = TRAIN_DATA_PATHS

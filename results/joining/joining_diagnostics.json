@@ -1494,7 +1494,7 @@
   "cleaning_reports": {
     "active_pre_split": {
       "before": {
-        "n_rows": 497931,
+        "n_rows": 508878,
         "n_items": 45073,
         "n_users": 10847
       },
@@ -1503,15 +1503,15 @@
         "n_items": 45073,
         "n_users": 10847
       },
-      "dropped_rows": 0,
+      "dropped_rows": 10947,
       "dropped_reason": {
         "missing_key_cols": 0,
-        "interaction_duplicates": 0
+        "interaction_duplicates": 10947
       }
     },
     "temporal_pre_split": {
       "before": {
-        "n_rows": 285521,
+        "n_rows": 289949,
         "n_items": 22007,
         "n_users": 6739
       },
@@ -1520,10 +1520,10 @@
         "n_items": 22007,
         "n_users": 6739
       },
-      "dropped_rows": 0,
+      "dropped_rows": 4428,
       "dropped_reason": {
         "missing_key_cols": 0,
-        "interaction_duplicates": 0
+        "interaction_duplicates": 4428
       }
     }
   },

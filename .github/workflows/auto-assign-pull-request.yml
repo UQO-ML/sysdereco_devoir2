@@ -1,4 +1,4 @@
-name: Auto Assign
+name: Auto Assign pull-request
 on:
   pull_request:
     types: [opened]
@@ -13,6 +13,6 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           assignees: T4rg3n, kiloutyg, Skodelowski, DongMeiTime
-          numOfAssignee: 1
-          abortIfPreviousAssignees: true
+          numOfAssignee: 2
+          abortIfPreviousAssignees: false
           allowSelfAssign: true

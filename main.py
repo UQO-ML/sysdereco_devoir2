@@ -88,7 +88,7 @@ def _joining_files_checker() -> bool:
     print(r"Reutilisation des ensembles P1")
 
     result = True
-    joined_data_paths = resolve_glob("data/joining/*_joined.parquet")
+    joined_data_paths = resolve_glob("data/joining/*_pre_split/*interactions.parquet")
 
     if len(joined_data_paths) == 0:
         result = False

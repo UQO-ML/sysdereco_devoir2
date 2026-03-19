@@ -1,6 +1,6 @@
 # Diagnostic Task 0 — Préparation des données (P2)
 
-- generated_at: 2026-03-16T21:13:23
+- generated_at: 2026-03-17T13:18:30
 
 ## A. Réutilisation du sous-ensemble de travail
 - note: `P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).`
@@ -291,25 +291,25 @@
 
 | métrique | avant | après | delta |
 |----------|-------|-------|-------|
-| lignes | 497931 | 497931 | −0 |
+| lignes | 508878 | 497931 | −10947 |
 | items | 45073 | 45073 | −0 |
 | users | 10847 | 10847 | −0 |
 
 **Raisons de suppression :**
 - `missing_key_cols`: 0 lignes
-- `interaction_duplicates`: 0 lignes
+- `interaction_duplicates`: 10947 lignes
 
 ### temporal_pre_split
 
 | métrique | avant | après | delta |
 |----------|-------|-------|-------|
-| lignes | 285521 | 285521 | −0 |
+| lignes | 289949 | 285521 | −4428 |
 | items | 22007 | 22007 | −0 |
 | users | 6739 | 6739 | −0 |
 
 **Raisons de suppression :**
 - `missing_key_cols`: 0 lignes
-- `interaction_duplicates`: 0 lignes
+- `interaction_duplicates`: 4428 lignes
 
 ## F4. Vérifications post-nettoyage
 
