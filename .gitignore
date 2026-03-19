@@ -215,5 +215,7 @@ data/tfidf/*.npz
 *.csv
 *.parquet
 *.jsonl
+*.npz
+*.npy
 amazon-reviews*
 *.tar.gz
