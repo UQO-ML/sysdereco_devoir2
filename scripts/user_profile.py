@@ -9,7 +9,7 @@ import time
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csr_matrix, load_npz, hstack
+from scipy.sparse import csr_matrix, load_npz, hstack, issparse, save_npz
 
 
 # -- Configuration --------------------------------------------------
@@ -31,7 +31,8 @@ ARTIFACTS_IN = {
 }
 
 ARTIFACTS_OUT = {
-    "profiles_tfidf": "user_profiles_tfidf.npy",
+    "profiles_tfidf_npy": "user_profiles_tfidf.npy",
+    "profiles_tfidf_npz": "user_profiles_tfidf.npz",
     "profiles_svd": "user_profiles_svd.npy",
     "user_ids": "user_ids.npy",
     "report": "user_profiles_report.json",
@@ -111,7 +112,7 @@ class ItemRepresentationLoader:
 
             df_src["_row"] = np.arange(len(df_src))
             dedup = df_src.drop_duplicates(subset=["parent_asin"], keep="first")
-            self._item_index = dict[str, int](zip(dedup["parent_asin"].values, dedup["_row"].values))
+            self._item_index = dict(zip(dedup["parent_asin"].values, dedup["_row"].values))
             self._item_ids = dedup["parent_asin"].values
             self._svd = None
             self._numeric = None
@@ -132,7 +133,6 @@ class ItemRepresentationLoader:
 
         if self.verbose:
             parts = [f"tfidf={self._tfidf.shape}"]
-            print(f"{time.perf_counter()-t0:.2f}s")
             if self._svd is not None:
                 parts.append(f"svd={self._svd.shape}")
             if self._numeric is not None:
@@ -214,7 +214,7 @@ class UserProfileBuilder:
         item_mat = self.item_loader.get_matrix(self.mode)
 
         is_sparse = hasattr(item_mat, "toarray")
-        n_features = item_mat.shape[1]
+        # n_features = item_mat.shape[1]
 
         valid_mask = df["parent_asin"].isin(item_idx)
         df_valid = df[valid_mask].copy()
@@ -242,11 +242,20 @@ class UserProfileBuilder:
         weight_sums[weight_sums == 0] = 1.0
 
         if is_sparse:
-            profiles = (R @ item_mat).toarray() / weight_sums[:, np.newaxis]
+            # profiles = (R @ item_mat).toarray() / weight_sums[:, np.newaxis]
+            profiles = (R @ item_mat).tocsr()
+            profiles.data = profiles.data.astype(np.float32, copy=False)
+            inv = (1.0 / weight_sums).astype(np.float32)
+            row_ids = np.repeat(
+                np.arange(profiles.shape[0], dtype=np.int32),
+                np.diff(profiles.indptr)
+            )
+            profiles.data *= inv[row_ids]
+
         else:
             profiles = (R @ item_mat) / weight_sums[:, np.newaxis]
+            profiles = profiles.astype(np.float32, copy=False)
 
-        profiles = profiles.astype(np.float32)
 
         # Cold-start : remplacer par le centroïde global
         if cold_users:
@@ -275,6 +284,9 @@ class UserProfileBuilder:
                 "Tous les ratings ≥ 1 comptent comme préférence positive",
             ],
             "build_time_s": round(elapsed, 2),
+            "profile_storage": "sparse_csr_npz" if is_sparse else "dense_npy",
+            "profile_nnz": int(profiles.nnz) if is_sparse else None,
+            "profile_density": round(float(profiles.nnz) / (profiles.shape[0] * profiles.shape[1]), 8) if is_sparse else 1.0,
         }
 
         if self.verbose:
@@ -298,8 +310,12 @@ def save_profiles(
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = {}
 
-    np.save(out_dir / ARTIFACTS_OUT["profiles_tfidf"], profiles_tfidf)
-    paths["profiles_tfidf"] = str(out_dir / ARTIFACTS_OUT["profiles_tfidf"])
+    if issparse(profiles_tfidf):
+        save_npz(out_dir / ARTIFACTS_OUT["profiles_tfidf_npz"], profiles_tfidf.tocsr())
+        paths["profiles_tfidf_npz"] = str(out_dir / ARTIFACTS_OUT["profiles_tfidf_npz"])
+    else:
+        np.save(out_dir / ARTIFACTS_OUT["profiles_tfidf_npy"], profiles_tfidf)
+        paths["profiles_tfidf_npy"] = str(out_dir / ARTIFACTS_OUT["profiles_tfidf_npy"])
 
     if profiles_svd is not None:
         np.save(out_dir / ARTIFACTS_OUT["profiles_svd"], profiles_svd)
@@ -352,8 +368,9 @@ def build_all_profiles(
         loader = ItemRepresentationLoader(artifacts_dir=variant_dir, verbose=verbose, notebook_mode=notebook_mode)
 
     if not loader.available:
-        print(f"  [SKIP] Artéfacts item_representation manquants dans {variant_dir}")
+        print(f"  [SKIP] Artéfacts manquants dans {loader.dir}")
         return {}
+
     loader.load()
 
     # Profils TF-IDF (Tâche 1)
