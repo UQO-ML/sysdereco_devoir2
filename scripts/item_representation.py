@@ -26,6 +26,7 @@ GLOB_PATTERN = "*_clean_joined.parquet"
 GLOB_SUFFIX = GLOB_PATTERN.replace("*", "")  # → "_clean_joined.parquet"
 
 CLEAN_DATASETS_PATHS = sorted(Path("data/joining").glob(GLOB_PATTERN))
+
 # Gestion des stop words
 STOPWORDS = {
     "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
@@ -74,13 +75,24 @@ def _df_memory_mb(df: pd.DataFrame) -> float:
     return df.memory_usage(deep=True).sum() / (1024 * 1024)
 
 
-def load_dataset(path = str) -> pd.DataFrame :
+def load_dataset(path: str) -> pd.DataFrame :
     print("load_dataset()")
     return pd.read_parquet(path)
 
 
 def category_formating(books_data = pd.DataFrame) -> pd.DataFrame:
     print("category_formating()")
+
+    # Dédupliquer au niveau item pour éviter plusieurs lignes par parent_asin
+    if isinstance(books_data, pd.DataFrame) and "parent_asin" in books_data.columns:
+        before_dedup = len(books_data)
+
+        books_data = books_data.drop_duplicates(subset=["parent_asin"]).reset_index(drop=True)
+
+        after_dedup = len(books_data)
+
+        if before_dedup != after_dedup:
+            print(f"category_formating(): deduplicated by parent_asin: {before_dedup} -> {after_dedup} rows")
 
     # Formattage éventuel des catégories
     if isinstance(books_data.at[0, "categories"], str):
@@ -122,7 +134,8 @@ def clean_text(text) -> str:
 
 
 
-def info_cleaning(books_data = pd.DataFrame) -> Tuple[pd.DataFrame, str]:
+def info_cleaning(books_data: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
+    t_start = time.perf_counter()
     print("info_cleaning()")
    
     batch_size = 10000
@@ -142,7 +155,7 @@ def info_cleaning(books_data = pd.DataFrame) -> Tuple[pd.DataFrame, str]:
     books_data["cleaned_infos"] = cleaned_texts
 
     # Vérification
-    print(f"Elapsed time: {(time.time() - t_start):.1f}")
+    print(f"Elapsed time: {(time.perf_counter() - t_start):.1f}")
     print(books_data["cleaned_infos"].iloc[0])
 
     return books_data, cleaned_texts

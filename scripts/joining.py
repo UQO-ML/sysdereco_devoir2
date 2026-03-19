@@ -4,7 +4,6 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from datetime import datetime
-from typing import Tuple
 
 
 import gc
@@ -2333,7 +2332,7 @@ def main() -> None:
         include_optional_raw=False,   
         export_artifacts=True,
         materialize_joined=True,
-        do_temporal_split= True,
+        do_temporal_split=True,
     )
 
     if result:

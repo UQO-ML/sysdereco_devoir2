@@ -38,6 +38,12 @@ ARTIFACTS_OUT = {
     "report": "user_profiles_report.json",
 }
 
+"""
+MIN_INTERACTIONS_FOR_PROFILE = 1 rend le mécanisme cold-start (users avec < min_interactions) inopérant dans la pratique, 
+car tout user présent dans le train a au moins 1 interaction. 
+Si l’objectif est de gérer les historiques trop courts, 
+augmenter ce seuil (ex. 3 comme le split temporel) ou ajuster la logique/description pour refléter le comportement réel.
+"""
 MIN_INTERACTIONS_FOR_PROFILE = 1
 
 
@@ -90,7 +96,8 @@ class ItemRepresentationLoader:
     @property
     def available(self) -> bool:
         if self.notebook_mode:
-            return (self.dir / NOTEBOOK_ARTIFACTS_IN["tfidf_matrix"]).exists()
+            return (self.dir / NOTEBOOK_ARTIFACTS_IN["tfidf_matrix"]).exists() and \
+                NOTEBOOK_SOURCE_PARQUET.exists()
         else:
             return (self.dir / ARTIFACTS_IN["tfidf_matrix"]).exists() and \
                (self.dir / ARTIFACTS_IN["item_ids"]).exists()
@@ -213,7 +220,8 @@ class UserProfileBuilder:
         item_idx = self.item_loader.item_index
         item_mat = self.item_loader.get_matrix(self.mode)
 
-        is_sparse = hasattr(item_mat, "toarray")
+        # is_sparse = hasattr(item_mat, "toarray")
+        is_sparse = issparse(item_mat)
         # n_features = item_mat.shape[1]
 
         valid_mask = df["parent_asin"].isin(item_idx)
@@ -419,7 +427,7 @@ def main() -> None:
             if svd_r:
                 print(f"  SVD:    {svd_r.get('n_users_active', '?')} actifs, "
                       f"shape={svd_r.get('profile_shape')}")
-    print(f"\n Total elapse: {(time.perf_counter() - t1):.1f}s")
+    print(f"\n Total elapse: {(time.perf_counter() - t0):.1f}s")
 
 if __name__ == "__main__":
     main()
