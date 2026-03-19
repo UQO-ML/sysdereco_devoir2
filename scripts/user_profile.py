@@ -24,7 +24,7 @@ NOTEBOOK_SOURCE_PARQUET = Path("data/joining/active_pre_split_clean_joined.parqu
 NOTEBOOK_ARTIFACTS_IN = {"tfidf_matrix": NOTEBOOK_NPZ}
 
 ARTIFACTS_IN = {
-    "tfidf_matrix": "tfidf_matrix.npz",
+    "tfidf_matrix": "books_representation_sparse.npz",
     "svd_matrix": "tfidf_svd_matrix.npy",
     "item_ids": "tfidf_item_ids.npy",
     "numeric_features": "numeric_features.npy",

@@ -210,8 +210,8 @@ def fuze_save(x_tfidf: Tuple,
     
     return final_representation
 
-def attr_checks(vectorizer: TfidfVectorizer, final_representation: csr_matrix) -> None:
 
+def attr_checks(vectorizer: TfidfVectorizer, final_representation: csr_matrix) -> None:
     print("\nattr_checks()\n")
     feature_names = vectorizer.get_feature_names_out()
 
