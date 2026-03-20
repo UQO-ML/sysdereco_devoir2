@@ -2,16 +2,18 @@ from typing import Any, Tuple
 import time
 import gc
 import os
+import psutil
 
 from pathlib import Path
 
 from scipy.sparse import load_npz
 from sklearn.metrics.pairwise import cosine_similarity
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 
-BATCH_SIZE = 5_000
+BATCH_SIZE = 10_000  # Super safe value are 256 or 512
 DATA_DIR = sorted(Path("data/joining").glob("*_pre_split"))
 TOP_N = 10
 
@@ -70,6 +72,16 @@ def mask_seen_items(scores: np.ndarray, seen_rows: np.ndarray, seen_cols: np.nda
 
 
 
+
+def build_seen_by_user_row(seen_rows, seen_cols):
+    d = defaultdict(list)
+    for r, c in zip(seen_rows, seen_cols):
+        d[int(r)].append(int(c))
+    return {r: np.asarray(cols, dtype=np.int64) for r, cols in d.items()}
+
+
+
+
 def compute_similarity(user_profiles, item_matrix, batch_size=500) -> Any:
     """Calcule la similarité cosinus profil-item par batch."""
 
@@ -96,6 +108,40 @@ def top_n_sim(scores, n: int = TOP_N) -> Any:
     """Tri pour la recommandation Top-N"""
     top_n_indices = np.argsort(-scores, axis=1)[:, :n]
     return top_n_indices
+
+
+
+def compute_top_n_memory_safe(
+    user_profiles,
+    item_matrix,
+    seen_by_user_row: dict[int, np.ndarray],
+    top_n: int = 10,
+    batch_size: int = 512,
+) -> np.ndarray:
+    n_users = user_profiles.shape[0]
+    top_idx_all = np.empty((n_users, top_n), dtype=np.int32)
+
+    for start in range(0, n_users, batch_size):
+        end = min(start + batch_size, n_users)
+
+        # Dense bloc temporaire seulement
+        block_scores = cosine_similarity(user_profiles[start:end], item_matrix).astype(np.float32, copy=False)
+
+        # Masquage "déjà vus"
+        for local_r, global_r in enumerate(range(start, end)):
+            seen_cols = seen_by_user_row.get(global_r)
+            if seen_cols is not None and len(seen_cols) > 0:
+                block_scores[local_r, seen_cols] = -np.inf
+
+        # Top-N sans trier toute la ligne
+        part = np.argpartition(-block_scores, kth=top_n - 1, axis=1)[:, :top_n]
+        rr = np.arange(block_scores.shape[0])[:, None]
+        ord_ = np.argsort(-block_scores[rr, part], axis=1)
+        top_idx_all[start:end] = part[rr, ord_]
+
+        del block_scores
+
+    return top_idx_all
 
 
 
@@ -157,8 +203,9 @@ def get_recommendations(top_n_indices, item_ids, item_titles):
             recommendations.append(user_recommendations)
     else:
         raise TypeError(f"Unsupported item_titles type: {type(item_titles)}")
-        
+
     return recommendations
+
 
 
 
@@ -175,6 +222,8 @@ def save_recommendations(recommendations, user_profiles_path: Path, top_n: int =
 
 
 
+
+
 def estimate_scores_memory(user_profiles, item_matrix, dtype=np.float32):
     n_users = user_profiles.shape[0]
     n_items = item_matrix.shape[0]
@@ -182,13 +231,9 @@ def estimate_scores_memory(user_profiles, item_matrix, dtype=np.float32):
     print("bytes:", bytes_)
     print("MiB:", bytes_ / (1024**2))
     print("GiB:", bytes_ / (1024**3))
-    return {
-        "shape": (n_users, n_items),
-        "dtype": str(np.dtype(dtype)),
-        "bytes": int(bytes_),
-        "MiB": bytes_ / (1024**2),
-        "GiB": bytes_ / (1024**3),
-    }
+    avail = psutil.virtual_memory().available
+    can_use_dense = bytes_ < (avail * 0.5)
+    return can_use_dense
 
 
 
@@ -222,24 +267,34 @@ def main() -> None:
                 f"user_profiles: {user_profiles.shape}\n"
                 f"item_matrix: {item_matrix.shape}\n")
 
-            estimate_scores_memory(
+            if estimate_scores_memory(
                 user_profiles=user_profiles,
-                item_matrix=item_matrix)
+                item_matrix=item_matrix):
                 
-            scores = compute_similarity(
-                user_profiles=user_profiles,
-                item_matrix=item_matrix,
-                batch_size=10_000
-            )
-            print(f"Calcule la similarité cosinus profil-item: {scores}\n")
+                scores = compute_similarity(
+                    user_profiles=user_profiles,
+                    item_matrix=item_matrix,
+                    batch_size=BATCH_SIZE
+                )
+                print(f"Calcule la similarité cosinus profil-item: {scores}\n")
 
-            mask_seen_items(scores, seen_rows, seen_cols)
-            score_top_n = top_n_sim(scores, n=top_n)
+                mask_seen_items(scores, seen_rows, seen_cols)
+                top_n_indices = top_n_sim(scores, n=top_n)
+                print(f"Calcule la similarité cosinus profil-item du Top {top_n}: {top_n_indices}\n")
 
-            print(f"Calcule la similarité cosinus profil-item du Top {top_n}: {score_top_n}\n")
+            else:
+                seen_by_user_row = build_seen_by_user_row(seen_rows=seen_rows,seen_cols=seen_cols)
+                top_n_indices = compute_top_n_memory_safe(
+                    user_profiles=user_profiles,
+                    item_matrix=item_matrix,
+                    seen_by_user_row=seen_by_user_row,
+                    top_n=top_n,
+                    batch_size=512,
+                )
+                print(f"Calcule la similarité cosinus profil-item du Top {top_n}: {top_n_indices}\n")
 
             recommendations = get_recommendations(
-                top_n_indices=score_top_n,
+                top_n_indices=top_n_indices,
                 item_ids=item_ids,
                 item_titles=item_titles
             )              
