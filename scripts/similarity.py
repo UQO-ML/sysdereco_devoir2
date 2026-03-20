@@ -26,16 +26,23 @@ def compute_similarity(user_profiles, item_matrix, batch_size=500):
 def main() -> None:
     t0 = time.perf_counter()
     for data_dir in DATA_DIR:
+
         t1 = time.perf_counter()
         print(f"Path: \n{data_dir}\n")
         user_profiles_paths = sorted(Path(data_dir).glob("user_profiles_tfidf*"))
-        for user_profiles_path in user_profiles_paths:
-            if ".npz" in user_profiles_path:
-                user_profiles = load_npz(user_profiles_path)
-            elif ".npy" in user_profiles_path:
-                
 
-            item_matrix = Path(dir / "books_representation_sparse.npz")
+        for user_profiles_path in user_profiles_paths:
+
+            if user_profiles_path.suffix == ".npz":
+                user_profiles = load_npz(user_profiles_path)
+            elif user_profiles_path.suffix == ".npy":
+                user_profiles = np.load(user_profiles_path, allow_pickle=False)  # dense
+            else:
+                continue
+
+            clean_src = user_profiles_path.parent / "books_representation_sparse.npz"
+
+            item_matrix = load_npz(clean_src)
             score = compute_similarity(
                 user_profiles=user_profiles,
                 item_matrix=item_matrix,
@@ -43,6 +50,7 @@ def main() -> None:
             )
             print(f"Calcule la similarité cosinus profil-item: {score}\n")
             print(f"Elapse total: {(time.perf_counter() - t1):.1f}s\n")
+
     print(f"Elapse total: {(time.perf_counter() - t0):.1f}s\n")
 
 

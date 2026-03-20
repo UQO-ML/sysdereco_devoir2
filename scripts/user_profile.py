@@ -364,7 +364,7 @@ def build_all_profiles(
     train_path: Path,
     force: bool = True,
     verbose: bool = True,
-    notebook_mode: bool = True
+    notebook_mode: bool = False
 ) -> Dict[str, Any]:
     variant_dir = train_path.parent
     variant = variant_dir.name
@@ -425,7 +425,7 @@ def main() -> None:
     t0 = time.perf_counter()
     for train_path in TRAIN_PATHS:
         t1 = time.perf_counter()
-        report = build_all_profiles(train_path, force=True, verbose=True, notebook_mode=True)
+        report = build_all_profiles(train_path, force=True, verbose=True, notebook_mode=False)
         if report:
             tfidf_r = report.get("tfidf_profiles", {})
             svd_r = report.get("svd_profiles", {})
