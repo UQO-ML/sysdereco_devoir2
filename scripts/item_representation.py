@@ -239,13 +239,13 @@ def main() -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
 
         books_data = load_dataset(path)
-        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n, \n{books_data}\n")
+        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
         
         books_data = category_formating(books_data)
-        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n, \n{books_data}\n")
+        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
 
         books_data, cleaned_texts = info_cleaning(books_data)
-        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n, \n{books_data}\n")
+        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
         
         x_tfidf, vectorizer = vectorization(cleaned_texts)
                 
