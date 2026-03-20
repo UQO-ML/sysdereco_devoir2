@@ -49,7 +49,7 @@ def main() -> None:
                 batch_size=10_000
             )
             print(f"Calcule la similarité cosinus profil-item: {score}\n")
-            print(f"Elapse total: {(time.perf_counter() - t1):.1f}s\n")
+            print(f"Elapse partiel: {(time.perf_counter() - t1):.1f}s\n")
 
     print(f"Elapse total: {(time.perf_counter() - t0):.1f}s\n")
 
