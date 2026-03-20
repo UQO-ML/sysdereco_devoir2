@@ -78,7 +78,7 @@ def load_dataset(path: str) -> pd.DataFrame :
     return pd.read_parquet(path)
 
 
-def category_formating(books_data = pd.DataFrame) -> pd.DataFrame:
+def category_formating(books_data = pd.DataFrame) -> Any:
     print("category_formating()")
 
     # Dédupliquer au niveau item pour éviter plusieurs lignes par parent_asin
@@ -205,7 +205,7 @@ def struct_attr(books_data: pd.DataFrame) -> pd.DataFrame:
 
 
 def fuze_save(x_tfidf: Tuple, 
-    normalized_attributes: pd.DataFrame, 
+    normalized_attributes: np.ndarray, 
     out_dir: Path,
     vectorizer: TfidfVectorizer,
     item_ids: np.ndarray,
