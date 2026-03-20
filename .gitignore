@@ -206,12 +206,16 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+.vscode/
+
 # Données volumineuses (décommenter si vous ne versionnez pas les jeux de données)
 data/raw/jsonl/*.jsonl
 data/raw/parquet/*.parquet
 data/processed/sample*
 data/tfidf/*.txt
 data/tfidf/*.npz
+data/*.json
+data/*.pkl
 *.csv
 *.parquet
 *.jsonl

@@ -51,6 +51,62 @@ data/joining/active_pre_split/
 └── dimension_comparison.json       # ⭐ Rapport comparatif + recommandation
 ```
 
+---
+
+### `nmf_reduction.py`
+
+**Pipeline dédié pour entraîner `NMF` sur les mêmes variants et dimensions.**
+
+- Réutilise le pipeline commun de `dimension_reduction.py`
+- Génère `items_reduced_nmf_*d.npy`, `reducer_nmf_*d.pkl`, `metrics_nmf_*d.json`
+- Permet une comparaison directe avec les artéfacts SVD
+
+#### Utilisation:
+
+```bash
+python scripts/nmf_reduction.py
+```
+
+---
+
+### `pca_reduction.py`
+
+**Script de faisabilité pour `PCA` dense sur les variants complets.**
+
+- Estime la mémoire dense requise avant toute exécution
+- Exécute PCA complet seulement si le budget mémoire est acceptable
+- Génère `pca_feasibility_report.json` quand PCA complet est refusé
+
+#### Utilisation:
+
+```bash
+python scripts/pca_reduction.py
+```
+
+---
+
+### `compare_reduction_methods.py`
+
+**Benchmark contrôlé `SVD` vs `NMF` vs `PCA` sur un sous-ensemble compatible avec PCA.**
+
+- Sous-échantillonne la matrice à `2000` items et `1000` features
+- Compare les dimensions `50`, `100`, `200`
+- Sauvegarde les ratios de temps, la variance expliquée et l'erreur de reconstruction
+
+#### Utilisation:
+
+```bash
+python scripts/compare_reduction_methods.py
+```
+
+#### Sorties:
+
+```text
+data/joining/{variant}/method_comparison_benchmark.json
+data/joining/{variant}/pca_feasibility_report.json
+data/joining/method_comparison_summary.json
+```
+
 #### Structure du Rapport (`dimension_comparison.json`):
 
 ```json
@@ -258,12 +314,22 @@ python scripts/item_representation.py
 ```bash
 # Appliquer SVD multi-dimensions
 python scripts/dimension_reduction.py
+
+# Comparer NMF au pipeline principal
+python scripts/nmf_reduction.py
+
+# Vérifier si PCA complet est faisable
+python scripts/pca_reduction.py
+
+# Produire benchmark comparatif SVD / NMF / PCA
+python scripts/compare_reduction_methods.py
 ```
 
 **Produit:**
 - Matrices réduites (50D, 100D, 200D, 300D)
 - Modèles SVD entraînés
 - Rapport comparatif avec recommandation
+- Rapports de benchmark entre méthodes
 
 ---
 
@@ -386,7 +452,11 @@ python scripts/dimension_reduction.py
 
 - PCA nécessite conversion dense → explosion mémoire
 - Pour 10k items × 30k features = 1.2 GB (dense)
-- Utiliser **exclusivement TruncatedSVD**
+- Les variants du projet dépassent ce budget en PCA complet:
+- `active_pre_split`: ~15.61 GB
+- `temporal_pre_split`: ~3.53 GB
+- Utiliser `python scripts/pca_reduction.py` pour vérifier la faisabilité
+- Utiliser `python scripts/compare_reduction_methods.py` pour un benchmark contrôlé
 
 ---
 

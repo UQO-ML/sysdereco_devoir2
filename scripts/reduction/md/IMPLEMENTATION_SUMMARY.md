@@ -20,13 +20,17 @@
 **NMF (Non-negative Matrix Factorization):**
 - ✓ Composantes non-négatives (interprétabilité)
 - ✓ Utile pour détection de topics
-- ✗ Plus lent que SVD (convergence itérative)
+- ✗ Benchmark sur sous-ensemble `2000 × 1000`: **6.4× à 29.1× plus lent que SVD**
+- ✗ Convergence itérative lente; `ConvergenceWarning` observé à 400 itérations
 - ✗ Contrainte de non-négativité limite expressivité
-- ✗ 3-5× plus lent pour dimensions comparables
+- ✗ Temps d'inférence aussi plus élevé que SVD
 
 **PCA (Principal Component Analysis):**
 - ✓ Maximise variance (comme SVD)
-- ✗ **Nécessite conversion dense → explosion mémoire**
+- ✓ Sur benchmark dense `2000 × 1000`, variance quasi identique à SVD
+- ✓ Plus rapide que SVD sur ce benchmark dense (`0.26×` à `0.45×` du temps de fit SVD)
+- ✗ **Nécessite conversion dense → explosion mémoire sur les variants complets**
+- ✗ Estimation mémoire complète: `15.61 GB` (`active_pre_split`), `3.53 GB` (`temporal_pre_split`)
 - ✗ Impraticable pour TF-IDF avec vocabulaire > 10k features
 - ✗ Opération de centrage détruit sparsité
 
@@ -41,7 +45,11 @@
 
 ### 2. Application de la Réduction
 
-✅ **Script principal créé:** `scripts/dimension_reduction.py`
+✅ **Scripts créés / étendus:**
+- `scripts/dimension_reduction.py` - pipeline principal `TruncatedSVD`
+- `scripts/nmf_reduction.py` - pipeline dédié `NMF`
+- `scripts/pca_reduction.py` - faisabilité / exécution contrôlée `PCA`
+- `scripts/compare_reduction_methods.py` - benchmark comparatif `SVD` vs `NMF` vs `PCA`
 
 **Fonctionnalités implémentées:**
 
@@ -77,6 +85,13 @@ data/joining/{variant}/
 ├── metrics_svd_200d.json           # Métriques 200D
 ├── metrics_svd_300d.json           # Métriques 300D
 └── dimension_comparison.json       # Rapport comparatif
+```
+
+**Artéfacts additionnels pour la comparaison des méthodes:**
+```
+data/joining/{variant}/
+├── method_comparison_benchmark.json   # Benchmark SVD/NMF/PCA sur sous-ensemble
+└── pca_feasibility_report.json        # Faisabilité mémoire du PCA complet
 ```
 
 ---
@@ -213,6 +228,12 @@ Guide pratique d'utilisation:
 - Exemples d'utilisation
 - Troubleshooting
 
+### 4. Rapports de benchmark générés
+- `data/joining/active_pre_split/method_comparison_benchmark.json`
+- `data/joining/temporal_pre_split/method_comparison_benchmark.json`
+- `data/joining/method_comparison_summary.json`
+- `data/joining/*/pca_feasibility_report.json`
+
 ---
 
 ## 🔄 Intégration au Pipeline Existant
@@ -262,6 +283,15 @@ python scripts/item_representation.py
 
 # 3. Appliquer réduction de dimension (Tâche 2) ⭐ NOUVEAU
 python scripts/dimension_reduction.py
+
+# 3b. Exécuter NMF sur les mêmes variants
+python scripts/nmf_reduction.py
+
+# 3c. Vérifier la faisabilité PCA complète
+python scripts/pca_reduction.py
+
+# 3d. Benchmark comparatif SVD / NMF / PCA
+python scripts/compare_reduction_methods.py
 
 # 4. Construire profils utilisateurs (Tâches 1 & 2)
 python scripts/user_profile.py
@@ -317,17 +347,25 @@ python scripts/user_profile.py
 
 ### Nouveaux fichiers:
 1. `scripts/dimension_reduction.py` (590 lignes)
-2. `docs/dimension_reduction_methodology.md` (650 lignes)
-3. `scripts/README_DIMENSION_REDUCTION.md` (450 lignes)
+2. `scripts/nmf_reduction.py`
+3. `scripts/pca_reduction.py`
+4. `scripts/compare_reduction_methods.py`
+5. `docs/dimension_reduction_methodology.md` (650 lignes)
+6. `scripts/README_DIMENSION_REDUCTION.md` (450 lignes)
 
 ### Fichiers modifiés:
 1. `scripts/user_profile.py`:
    - Lignes 26-35: Ajout artéfacts SVD multi-dimensions
    - Lignes 175-231: Extension `get_matrix()` avec modes SVD_XD et svd_auto
+2. `scripts/dimension_reduction.py`:
+   - Support effectif de `PCA` avec conversion dense contrôlée
+   - Estimation mémoire dense réutilisable par les scripts dédiés
+3. `IMPLEMENTATION_SUMMARY.md`:
+   - Ajout des résultats empiriques `NMF` / `PCA`
 
 ### Total:
-- **~1700 lignes de code + documentation**
-- **3 fichiers créés, 1 modifié**
+- **~1900 lignes de code + documentation**
+- **6 fichiers créés, 3 modifiés**
 - **Conformité 100% avec spécifications de l'issue**
 
 ---
@@ -340,7 +378,7 @@ python scripts/user_profile.py
 4. **Documentation**: Docstrings détaillées, commentaires explicatifs
 5. **Modularité**: Fonctions indépendantes, réutilisables
 6. **Automatisation**: Recommandation dimension sans intervention manuelle
-7. **Traçabilité**: Tous résultats sauvegardés (matrices, modèles, métriques)
+7. **Traçabilité**: Tous résultats sauvegardés (matrices, modèles, métriques, benchmarks)
 
 ---
 

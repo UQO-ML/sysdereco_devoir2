@@ -56,6 +56,9 @@ ARTIFACTS = {
     "comparison": "dimension_comparison.json",
 }
 
+# Budget mémoire maximal (pca_reduction.py)
+MAX_PCA_DENSE_MEMORY_GB = 20.0
+
 
 # -- Justification de la méthode -----------------------------------
 
@@ -156,6 +159,12 @@ def load_tfidf_matrix(variant_dir: Path, verbose: bool = True) -> Tuple[csr_matr
     return tfidf_matrix, item_ids
 
 
+def estimate_dense_memory_gb(shape: Tuple[int, int], dtype_bytes: int = 4) -> float:
+    """Estime la mémoire requise pour une matrice dense de taille `shape`."""
+    n_rows, n_cols = shape
+    return (n_rows * n_cols * dtype_bytes) / (1024 ** 3)
+
+
 # -- Réduction de dimension -----------------------------------------
 
 def apply_dimension_reduction(
@@ -178,6 +187,9 @@ def apply_dimension_reduction(
     """
     t_fit_start = time.perf_counter()
 
+    dense_matrix: Optional[np.ndarray] = None
+    dense_conversion_time_s = 0.0
+
     if method == "svd":
         model = TruncatedSVD(
             n_components=n_components,
@@ -195,23 +207,35 @@ def apply_dimension_reduction(
             l1_ratio=0.0,
         )
     elif method == "pca":
-        # PCA nécessite matrice dense - ATTENTION mémoire!
+        dense_memory_gb = estimate_dense_memory_gb(tfidf_matrix.shape, dtype_bytes=4)
         if verbose:
-            print(f"  [WARNING] PCA nécessite conversion dense "
-                  f"({tfidf_matrix.shape[0] * tfidf_matrix.shape[1] * 4 / 1024**3:.2f} GB)")
+            print(
+                f"  [INFO] PCA nécessite conversion dense "
+                f"({dense_memory_gb:.2f} GB en float32)"
+            )
+
+        t_dense_start = time.perf_counter()
+        dense_matrix = tfidf_matrix.toarray().astype(np.float32, copy=False)
+        dense_conversion_time_s = time.perf_counter() - t_dense_start
         model = PCA(n_components=n_components, random_state=SEED)
     else:
         raise ValueError(f"Méthode inconnue: {method}")
 
     # Entraînement
-    reduced_matrix = model.fit_transform(tfidf_matrix)
+    fit_input = dense_matrix if dense_matrix is not None else tfidf_matrix
+    reduced_matrix = model.fit_transform(fit_input)
     t_fit = time.perf_counter() - t_fit_start
 
     # Temps de transformation (inférence) - mesure sur la même matrice
     t_transform_start = time.perf_counter()
-    _ = model.transform(tfidf_matrix[:min(1000, tfidf_matrix.shape[0])])  # 1000 samples
+    sample_size = min(1000, tfidf_matrix.shape[0])
+    if dense_matrix is not None:
+        transform_input = dense_matrix[:sample_size]
+    else:
+        transform_input = tfidf_matrix[:sample_size]
+    _ = model.transform(transform_input)
     t_transform = time.perf_counter() - t_transform_start
-    t_transform_per_sample = t_transform / min(1000, tfidf_matrix.shape[0])
+    t_transform_per_sample = t_transform / sample_size
 
     # Calcul métriques
     metrics = {
@@ -223,6 +247,10 @@ def apply_dimension_reduction(
         "transform_time_s": round(t_transform, 4),
         "transform_time_per_sample_ms": round(t_transform_per_sample * 1000, 4),
     }
+
+    if dense_matrix is not None:
+        metrics["dense_memory_gb"] = round(estimate_dense_memory_gb(tfidf_matrix.shape, dtype_bytes=4), 4)
+        metrics["dense_conversion_time_s"] = round(dense_conversion_time_s, 4)
 
     # Métriques spécifiques SVD/PCA
     if hasattr(model, "explained_variance_ratio_"):
@@ -278,7 +306,7 @@ def compare_dimensions(
             print(f"\n[{dim}D]")
 
         try:
-            _, model, metrics = apply_dimension_reduction(
+            _, _, metrics = apply_dimension_reduction(
                 tfidf_matrix,
                 method=method,
                 n_components=dim,
@@ -460,6 +488,13 @@ def run_dimension_reduction_pipeline(
         print(f"  {variant} - Réduction de dimension ({method.upper()})")
         print(f"{'='*70}")
 
+    comparison_path = variant_dir / ARTIFACTS["comparison"]
+    if comparison_path.exists() and not force:
+        if verbose:
+            print(f"  [SKIP] Rapport existant chargé: {comparison_path}")
+        with open(comparison_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     # 1. Charger matrice TF-IDF
     tfidf_matrix, item_ids = load_tfidf_matrix(variant_dir, verbose=verbose)
 
@@ -512,7 +547,6 @@ def run_dimension_reduction_pipeline(
     }
 
     # Sauvegarder rapport comparatif
-    comparison_path = variant_dir / ARTIFACTS["comparison"]
     with open(comparison_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
