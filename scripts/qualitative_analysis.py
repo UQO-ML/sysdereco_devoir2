@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import gc
 from pathlib import Path
 from typing import Any
@@ -175,10 +174,6 @@ def qualitative_analysis(variant_dir: Path, top_n: int, output_md: Path) -> None
             f"{top_idx_path.name} contient {top_idx_all.shape[1]} colonnes < top_n={top_n}"
         )
 
-    up_npz = variant_dir / "user_profiles_tfidf.npz"
-    up_npy = variant_dir / "user_profiles_tfidf.npy"
-    user_profiles = load_npz(up_npz) if up_npz.exists() else np.load(up_npy, allow_pickle=False)
-
     item_matrix = load_npz(variant_dir / "books_representation_sparse.npz")
 
     # On limite les colonnes lues pour economiser la memoire
@@ -214,7 +209,6 @@ def qualitative_analysis(variant_dir: Path, top_n: int, output_md: Path) -> None
         # Point cle memory safe: un seul utilisateur a la fois
         # Recommandations déjà calculées par similarity.py (alignées avec user_ids)
         top_idx = top_idx_all[row, :top_n].astype(np.int64, copy=False)
-        top_scores = np.full(top_idx.shape[0], np.nan, dtype=np.float32)  # score non recalculé ici
 
         rec_asins = [col_to_asin[int(j)] for j in top_idx]
         rec_titles = [asin_to_title.get(a, str(item_titles[int(j)])) for a, j in zip(rec_asins, top_idx)]
@@ -321,7 +315,7 @@ def qualitative_analysis(variant_dir: Path, top_n: int, output_md: Path) -> None
 
         # Liberation explicite des temporaires de boucle
         del (
-            top_idx, top_scores, rec_asins, rec_titles, rec_cats,
+            top_idx, rec_asins, rec_titles, rec_cats,
             u_train, u_test, hist, rec_tbl, gt, train_cats, reco_cats,
             best_train, prox_examples, rec_mat, sim_mat, iu, intra_vals,
             train_vc, reco_vc, test_asins
@@ -345,7 +339,7 @@ def qualitative_analysis(variant_dir: Path, top_n: int, output_md: Path) -> None
 
     # Nettoyage final
     del (
-        user_ids, item_ids, item_titles, user_profiles, item_matrix, train, test, meta,
+        user_ids, item_ids, item_titles, item_matrix, train, test, meta,
         asin_to_title, asin_to_cat, user_to_row, item_to_col, col_to_asin, selected, summary_rows
     )
     gc.collect()
