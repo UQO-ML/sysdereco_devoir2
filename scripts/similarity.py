@@ -223,6 +223,15 @@ def save_recommendations(recommendations, user_profiles_path: Path, top_n: int =
 
 
 
+def save_top_n_indices(top_n_indices, user_profiles_path: Path, top_n: int = TOP_N):
+    """Sauvegarde les indices d'items recommandés (alignés avec item_ids.npy)."""
+    arr = np.asarray(top_n_indices, dtype=np.int32)
+    dest_path = Path(user_profiles_path.parent / f"top_n_indices_{top_n}.npy")
+    np.save(dest_path, arr)
+    return print(f"Fichier indices top-{top_n}: {_fmt_size(os.path.getsize(dest_path))}")
+
+
+
 
 def estimate_scores_memory(user_profiles, item_matrix, dtype=np.float32):
     n_users = user_profiles.shape[0]
@@ -292,6 +301,8 @@ def main() -> None:
                     batch_size=512,
                 )
                 print(f"Calcule la similarité cosinus profil-item du Top {top_n}: {top_n_indices}\n")
+
+            save_top_n_indices(top_n_indices=top_n_indices, user_profiles_path=user_profiles_path, top_n=top_n)
 
             recommendations = get_recommendations(
                 top_n_indices=top_n_indices,
