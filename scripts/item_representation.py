@@ -20,8 +20,6 @@ from pathlib import Path
 import numpy as np
 
 
-BOOKS_DATA_PATH = "data/joining/active_pre_split_clean_joined.parquet"
-
 GLOB_PATTERN = "*_clean_joined.parquet"
 GLOB_SUFFIX = GLOB_PATTERN.replace("*", "")  # → "_clean_joined.parquet"
 
@@ -92,7 +90,7 @@ def category_formating(books_data = pd.DataFrame) -> pd.DataFrame:
         after_dedup = len(books_data)
 
         if before_dedup != after_dedup:
-            print(f"category_formating(): deduplicated by parent_asin: {before_dedup} -> {after_dedup} rows")
+            print(f"deduplicated by parent_asin: {before_dedup} -> {after_dedup} rows")
 
     # Formattage éventuel des catégories
     if isinstance(books_data.at[0, "categories"], str):
@@ -143,14 +141,14 @@ def info_cleaning(books_data: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
 
     batch_number = 0
 
-    # for i in range(0, len(books_data), batch_size):
-    #     batch = books_data["combined_infos"].iloc[i:i+batch_size]
-    #     cleaned_batch = batch.apply(clean_text)
-    #     cleaned_texts.extend(cleaned_batch)
-    #     batch_number += 1
-    #     print(f"batch number: {batch_number}")
+    for i in range(0, len(books_data), batch_size):
+        batch = books_data["combined_infos"].iloc[i:i+batch_size]
+        cleaned_batch = batch.apply(clean_text)
+        cleaned_texts.extend(cleaned_batch)
+        batch_number += 1
+        print(f"batch number: {batch_number}")
 
-    cleaned_texts = books_data["combined_infos"].apply(clean_text)
+    # cleaned_texts = books_data["combined_infos"].apply(clean_text)
 
     books_data["cleaned_infos"] = cleaned_texts
 
@@ -239,13 +237,13 @@ def main() -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
 
         books_data = load_dataset(path)
-        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n, \n{books_data}\n")
+        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
         
         books_data = category_formating(books_data)
-        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n, \n{books_data}\n")
+        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
 
         books_data, cleaned_texts = info_cleaning(books_data)
-        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n, \n{books_data}\n")
+        print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
         
         x_tfidf, vectorizer = vectorization(cleaned_texts)
                 

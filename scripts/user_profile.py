@@ -26,8 +26,6 @@ NOTEBOOK_ARTIFACTS_IN = {"tfidf_matrix": NOTEBOOK_NPZ}
 ARTIFACTS_IN = {
     "tfidf_matrix": "books_representation_sparse.npz",
     "svd_matrix": "tfidf_svd_matrix.npy",
-    "item_ids": "tfidf_item_ids.npy",
-    "numeric_features": "numeric_features.npy",
 }
 
 ARTIFACTS_OUT = {
@@ -85,6 +83,7 @@ class ItemRepresentationLoader:
 
     def __init__(self, artifacts_dir: str | Path, verbose: bool = True, notebook_mode: bool = True):
         self.dir = Path(artifacts_dir)
+        self.artifacts_dir = artifacts_dir
         self.verbose = verbose
         self.notebook_mode = notebook_mode
         self._tfidf: Optional[csr_matrix] = None
@@ -95,22 +94,27 @@ class ItemRepresentationLoader:
 
     @property
     def available(self) -> bool:
+        print("Available()")
         if self.notebook_mode:
+            print(f"{self.dir / NOTEBOOK_ARTIFACTS_IN['tfidf_matrix']}")
             return (self.dir / NOTEBOOK_ARTIFACTS_IN["tfidf_matrix"]).exists() and \
                 NOTEBOOK_SOURCE_PARQUET.exists()
         else:
+            print(f"{self.dir / ARTIFACTS_IN['tfidf_matrix']}")
+            clean_src = self.dir.parent / f"{self.dir.name}_clean_joined.parquet"
+            print(f"{clean_src}")
             return (self.dir / ARTIFACTS_IN["tfidf_matrix"]).exists() and \
-               (self.dir / ARTIFACTS_IN["item_ids"]).exists()
+                clean_src.exists()
+
 
     def load(self) -> ItemRepresentationLoader:
+        t0 = time.perf_counter()
         if not self.available:
             raise FileNotFoundError(f"Artéfacts manquants dans {self.dir}")
 
-        t0 = time.perf_counter()
 
         if self.notebook_mode:
             self._tfidf = load_npz(self.dir / NOTEBOOK_ARTIFACTS_IN["tfidf_matrix"])
-
             df_src = pd.read_parquet(NOTEBOOK_SOURCE_PARQUET, columns=["parent_asin"])
 
             if (len(df_src) != self._tfidf.shape[0]):
@@ -125,18 +129,24 @@ class ItemRepresentationLoader:
             self._numeric = None
 
         else:
-            self._item_ids = np.load(self.dir / ARTIFACTS_IN["item_ids"], allow_pickle=True)
-            self._item_index = {asin: i for i, asin in enumerate(self._item_ids)}
-
             self._tfidf = load_npz(self.dir / ARTIFACTS_IN["tfidf_matrix"])
 
-            svd_path = self.dir / ARTIFACTS_IN["svd_matrix"]
-            if svd_path.exists():
-                self._svd = np.load(svd_path)
+            clean_src = self.dir.parent / f"{self.dir.name}_clean_joined.parquet"
+            df_src = pd.read_parquet(clean_src, columns=["parent_asin"])
+            dedup = df_src.drop_duplicates(subset=["parent_asin"], keep="first").copy()
+            del df_src
+            gc.collect()
 
-            num_path = self.dir / ARTIFACTS_IN["numeric_features"]
-            if num_path.exists():
-                self._numeric = np.load(num_path)
+            if (len(dedup) != self._tfidf.shape[0]):
+                print("La matrice ne correspond pas au Dataset")
+                raise FileNotFoundError
+
+            dedup["_row"] = np.arange(len(dedup))
+
+            self._item_index = dict(zip(dedup["parent_asin"].values, dedup["_row"].values))
+            self._item_ids = dedup["parent_asin"].values
+            self._svd = None
+            self._numeric = None
 
         if self.verbose:
             parts = [f"tfidf={self._tfidf.shape}"]
@@ -352,9 +362,9 @@ def profiles_exist(variant_dir: Path) -> bool:
 
 def build_all_profiles(
     train_path: Path,
-    force: bool = False,
+    force: bool = True,
     verbose: bool = True,
-    notebook_mode: bool = True
+    notebook_mode: bool = False
 ) -> Dict[str, Any]:
     variant_dir = train_path.parent
     variant = variant_dir.name
@@ -415,7 +425,7 @@ def main() -> None:
     t0 = time.perf_counter()
     for train_path in TRAIN_PATHS:
         t1 = time.perf_counter()
-        report = build_all_profiles(train_path, force=True, verbose=True, notebook_mode=True)
+        report = build_all_profiles(train_path, force=True, verbose=True, notebook_mode=False)
         if report:
             tfidf_r = report.get("tfidf_profiles", {})
             svd_r = report.get("svd_profiles", {})
