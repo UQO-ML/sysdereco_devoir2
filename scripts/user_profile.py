@@ -94,6 +94,7 @@ class ItemRepresentationLoader:
 
     @property
     def available(self) -> bool:
+        print("Available()")
         if self.notebook_mode:
             print(f"{self.dir / NOTEBOOK_ARTIFACTS_IN['tfidf_matrix']}")
             return (self.dir / NOTEBOOK_ARTIFACTS_IN["tfidf_matrix"]).exists() and \
@@ -101,6 +102,7 @@ class ItemRepresentationLoader:
         else:
             print(f"{self.dir / ARTIFACTS_IN['tfidf_matrix']}")
             clean_src = self.dir.parent / f"{self.dir.name}_clean_joined.parquet"
+            print(f"{clean_src}")
             return (self.dir / ARTIFACTS_IN["tfidf_matrix"]).exists() and \
                 clean_src.exists()
 
@@ -127,18 +129,20 @@ class ItemRepresentationLoader:
             self._numeric = None
 
         else:
-
             self._tfidf = load_npz(self.dir / ARTIFACTS_IN["tfidf_matrix"])
 
             clean_src = self.dir.parent / f"{self.dir.name}_clean_joined.parquet"
             df_src = pd.read_parquet(clean_src, columns=["parent_asin"])
+            dedup = df_src.drop_duplicates(subset=["parent_asin"], keep="first").copy()
+            del df_src
+            gc.collect()
 
-            if (len(df_src) != self._tfidf.shape[0]):
+            if (len(dedup) != self._tfidf.shape[0]):
                 print("La matrice ne correspond pas au Dataset")
                 raise FileNotFoundError
 
-            df_src["_row"] = np.arange(len(df_src))
-            dedup = df_src.drop_duplicates(subset=["parent_asin"], keep="first")
+            dedup["_row"] = np.arange(len(dedup))
+
             self._item_index = dict(zip(dedup["parent_asin"].values, dedup["_row"].values))
             self._item_ids = dedup["parent_asin"].values
             self._svd = None
@@ -421,7 +425,7 @@ def main() -> None:
     t0 = time.perf_counter()
     for train_path in TRAIN_PATHS:
         t1 = time.perf_counter()
-        report = build_all_profiles(train_path, force=True, verbose=True, notebook_mode=False)
+        report = build_all_profiles(train_path, force=True, verbose=True, notebook_mode=True)
         if report:
             tfidf_r = report.get("tfidf_profiles", {})
             svd_r = report.get("svd_profiles", {})
