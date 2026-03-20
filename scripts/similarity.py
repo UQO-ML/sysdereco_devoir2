@@ -24,6 +24,48 @@ def _fmt_size(n_bytes: float) -> str:
             return f"{n_bytes:.1f} {unit}"
         n_bytes /= 1024
     return f"{n_bytes:.1f} TiB"
+    
+
+
+
+def build_seen_indices(data_dir: Path, item_ids: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Construit les indices (rows, cols) des interactions déjà vues dans le train:
+    - rows: index utilisateur dans user_profiles
+    - cols: index item dans item_matrix
+    """
+    # Ordre des utilisateurs = ordre des lignes de user_profiles/scores
+    user_ids = np.load(data_dir / "user_ids.npy", allow_pickle=True)
+    user_to_row = {u: i for i, u in enumerate(user_ids)}
+
+    # Ordre des items = ordre des colonnes de score (item_matrix rows)
+    item_to_col = {asin: j for j, asin in enumerate(item_ids)}
+
+    train_df = pd.read_parquet(
+        data_dir / "train_interactions.parquet",
+        columns=["user_id", "parent_asin"],
+    ).drop_duplicates(subset=["user_id", "parent_asin"], keep="first")
+
+    rows = train_df["user_id"].map(user_to_row).to_numpy()
+    cols = train_df["parent_asin"].map(item_to_col).to_numpy()
+    del train_df
+    gc.collect()
+
+    valid = (~pd.isna(rows)) & (~pd.isna(cols))
+
+    rows = rows[valid].astype(np.int64, copy=False)
+    cols = cols[valid].astype(np.int64, copy=False)
+     
+    return rows, cols
+
+
+
+
+def mask_seen_items(scores: np.ndarray, seen_rows: np.ndarray, seen_cols: np.ndarray) -> None:
+    """
+    Masque in-place les items déjà vus: ils ne pourront pas sortir dans le top-N.
+    """
+    scores[seen_rows, seen_cols] = -np.inf
 
 
 
@@ -69,6 +111,7 @@ def load_item_tables(data_dir: Path):
         print("item_ids_file_path.exists() et item_titles_file_path.exists(): True")
         item_ids = np.load(item_ids_file_path, allow_pickle=True)
         item_titles = np.load(item_titles_file_path, allow_pickle=True)
+        
     else:
         # 1) Chemin déterministe de la source alignée avec item_representation
         clean_path = data_dir.parent / f"{data_dir.name}_clean_joined.parquet"
@@ -100,15 +143,21 @@ def load_item_matrix(user_profiles_path: Path):
 
 
 def get_recommendations(top_n_indices, item_ids, item_titles):
-    """Retourne les IDs ou titres des livres recommandés."""
-    print("get_recommendations()\n")
-
     recommendations = []
 
-    for user_indices in top_n_indices:
-        user_recommendations = [item_titles[i] for i in user_indices]
-        recommendations.append(user_recommendations)
-
+    if isinstance(item_titles, dict):
+        # item_titles maps asin -> title
+        for user_indices in top_n_indices:
+            user_recommendations = [item_titles[item_ids[i]] for i in user_indices]
+            recommendations.append(user_recommendations)
+    elif isinstance(item_titles, (list, tuple, np.ndarray)):
+        # item_titles is array-like aligned with item index
+        for user_indices in top_n_indices:
+            user_recommendations = [item_titles[i] for i in user_indices]
+            recommendations.append(user_recommendations)
+    else:
+        raise TypeError(f"Unsupported item_titles type: {type(item_titles)}")
+        
     return recommendations
 
 
@@ -126,7 +175,25 @@ def save_recommendations(recommendations, user_profiles_path: Path, top_n: int =
 
 
 
+def estimate_scores_memory(user_profiles, item_matrix, dtype=np.float32):
+    n_users = user_profiles.shape[0]
+    n_items = item_matrix.shape[0]
+    bytes_ = n_users * n_items * np.dtype(dtype).itemsize
+    print("bytes:", bytes_)
+    print("MiB:", bytes_ / (1024**2))
+    print("GiB:", bytes_ / (1024**3))
+    return {
+        "shape": (n_users, n_items),
+        "dtype": str(np.dtype(dtype)),
+        "bytes": int(bytes_),
+        "MiB": bytes_ / (1024**2),
+        "GiB": bytes_ / (1024**3),
+    }
 
+
+
+
+    
 def main() -> None:
     
     top_n = TOP_N
@@ -139,6 +206,7 @@ def main() -> None:
         user_profiles_paths = sorted(Path(data_dir).glob("user_profiles_tfidf*"))
 
         item_ids, item_titles = load_item_tables(data_dir=data_dir)
+        seen_rows, seen_cols = build_seen_indices(data_dir=data_dir, item_ids=item_ids)
 
         for user_profiles_path in user_profiles_paths:
             if user_profiles_path.suffix == ".npz":
@@ -154,6 +222,10 @@ def main() -> None:
                 f"user_profiles: {user_profiles.shape}\n"
                 f"item_matrix: {item_matrix.shape}\n")
 
+            estimate_scores_memory(
+                user_profiles=user_profiles,
+                item_matrix=item_matrix)
+                
             scores = compute_similarity(
                 user_profiles=user_profiles,
                 item_matrix=item_matrix,
@@ -161,11 +233,16 @@ def main() -> None:
             )
             print(f"Calcule la similarité cosinus profil-item: {scores}\n")
 
-            score_top_n = top_n_sim(scores)
-            print(f"Calcule la similarité cosinus profil-item du Top {top_n}: {scores}\n")
+            mask_seen_items(scores, seen_rows, seen_cols)
+            score_top_n = top_n_sim(scores, n=top_n)
 
-            recommendations = get_recommendations(top_n_indices=score_top_n, item_ids=item_ids, item_titles=item_titles)
-            
+            print(f"Calcule la similarité cosinus profil-item du Top {top_n}: {score_top_n}\n")
+
+            recommendations = get_recommendations(
+                top_n_indices=score_top_n,
+                item_ids=item_ids,
+                item_titles=item_titles
+            )              
             print(f"Exemple de recommandations pour le premier utilisateur: {recommendations[0]}\n")
 
             save_recommendations(recommendations=recommendations, user_profiles_path=user_profiles_path, top_n=top_n)
