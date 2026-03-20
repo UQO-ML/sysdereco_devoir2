@@ -78,7 +78,7 @@ def load_dataset(path: str) -> pd.DataFrame :
     return pd.read_parquet(path)
 
 
-def category_formating(books_data = pd.DataFrame) -> pd.DataFrame:
+def category_formating(books_data = pd.DataFrame) -> Any:
     print("category_formating()")
 
     # Dédupliquer au niveau item pour éviter plusieurs lignes par parent_asin
@@ -86,6 +86,8 @@ def category_formating(books_data = pd.DataFrame) -> pd.DataFrame:
         before_dedup = len(books_data)
 
         books_data = books_data.drop_duplicates(subset=["parent_asin"]).reset_index(drop=True)
+        item_ids = books_data["parent_asin"].values
+        item_titles = books_data["title"].values
 
         after_dedup = len(books_data)
 
@@ -104,21 +106,26 @@ def category_formating(books_data = pd.DataFrame) -> pd.DataFrame:
 
     # Vérification
     print(books_data["combined_infos"].iloc[0])
-    return books_data
+    return books_data, item_ids, item_titles
 
 
 
 
 
 def clean_text(text) -> str:
+
     # Suppression des URLs
     text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+
     # Suppression de la ponctuation
     text = text.translate(PUNCTUATION_TABLE)
+
     # Suppression des chiffres
     text = re.sub(r'\d+', '', text)
+
     # Conversion en minuscules et enlèvement des accents
     text = unidecode(text.lower())
+
     # Tokenisation et filtrage des stopwords
     tokens = text.split()
     tokens = [
@@ -128,7 +135,9 @@ def clean_text(text) -> str:
         and token.isalpha()
         and not re.search(r'(.)\1{2,}', token)
     ]
+
     return " ".join(tokens)
+
 
 
 
@@ -159,6 +168,8 @@ def info_cleaning(books_data: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
     return books_data, cleaned_texts
 
 
+
+
 def vectorization(cleaned_texts: str ) -> Tuple:
     print("\nvectorization()\n")
 
@@ -171,6 +182,9 @@ def vectorization(cleaned_texts: str ) -> Tuple:
     print(f"Vocabulaire (10 premiers mots) : {vectorizer.get_feature_names_out()[:10]}")
     
     return x_tfidf, vectorizer
+
+
+
 
 def struct_attr(books_data: pd.DataFrame) -> pd.DataFrame:
     print("\nstruct_attr")
@@ -188,10 +202,14 @@ def struct_attr(books_data: pd.DataFrame) -> pd.DataFrame:
     return normalized_attributes
 
 
+
+
 def fuze_save(x_tfidf: Tuple, 
-    normalized_attributes: pd.DataFrame, 
+    normalized_attributes: np.ndarray, 
     out_dir: Path,
     vectorizer: TfidfVectorizer,
+    item_ids: np.ndarray,
+    item_titles: np.ndarray
 ):
     # Conversion des attributs normalisés en matrice creuse
     attributs_sparse = csr_matrix(normalized_attributes)
@@ -201,6 +219,8 @@ def fuze_save(x_tfidf: Tuple,
 
     # Sauvegarde
     save_npz(out_dir / "books_representation_sparse.npz", final_representation)
+    np.save(out_dir / "item_ids.npy",item_ids)
+    np.save(out_dir / "item_titles.npy",item_titles)
 
     # Sauvegarde du vocabulaire TF-IDF
     with open(out_dir / "vocabulary_tfidf.txt", "w") as f:
@@ -239,7 +259,7 @@ def main() -> None:
         books_data = load_dataset(path)
         print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
         
-        books_data = category_formating(books_data)
+        books_data, item_ids, item_titles = category_formating(books_data)
         print(f"\n{path},\ndisk: {_disk_size(path)}, \nmemory (loaded): {_df_memory_mb(books_data):.1f} MiB, \n{books_data.shape}, \n{books_data.columns.tolist()}\n")
 
         books_data, cleaned_texts = info_cleaning(books_data)
@@ -253,7 +273,15 @@ def main() -> None:
         del books_data, cleaned_texts
         gc.collect()
 
-        final_representation = fuze_save(x_tfidf=x_tfidf, normalized_attributes=normalized_attributes, out_dir=out_dir, vectorizer=vectorizer)
+        final_representation = fuze_save(
+                                        x_tfidf=x_tfidf, 
+                                        normalized_attributes=normalized_attributes, 
+                                        out_dir=out_dir, 
+                                        vectorizer=vectorizer,
+                                        item_ids=item_ids,
+                                        item_titles=item_titles
+                                    )
+
         del x_tfidf, normalized_attributes
         gc.collect()
 
