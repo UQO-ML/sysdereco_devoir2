@@ -40,7 +40,7 @@ class SourceInfo:
 
 _HTML_PATTERN = re.compile(r"<[^>]+>|&[a-zA-Z]+;|&\#\d+;")
 
-INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp", "text"]
+INTERACTION_MIN_COLS = ["user_id", "parent_asin", "rating", "timestamp", "text", "helpful_vote", "verified_purchase"]
 
 METADATA_SCALAR_COLS = ["title", "subtitle"]
 METADATA_LIST_COLS = ["features", "description", "categories"]
@@ -127,10 +127,16 @@ for _c in METADATA_NESTED_COLS:
     COLUMN_TYPE_MAP[_c] = "catégorielle (struct imbriqué)"
 for _c in METADATA_STRUCT_COLS:
     COLUMN_TYPE_MAP[_c] = "numérique"
+
 # Colonnes post-normalisation dérivées de structs
-COLUMN_TYPE_MAP["author_name"] = "catégorielle (extraite de struct)"
-COLUMN_TYPE_MAP["details_publisher"] = "catégorielle (extraite de struct)"
-COLUMN_TYPE_MAP["details_language"] = "catégorielle (extraite de struct)"
+STRUCT_EXTRACT = "catégorielle (extraite de struct)"
+COLUMN_TYPE_MAP["author_name"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["details_publisher"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["details_language"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["details_paperback"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["details_hardcover"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["details_print_length"] = STRUCT_EXTRACT
+
 
 
 
@@ -914,6 +920,88 @@ def _join_list_col(
 
 
 
+def _extract_nb_pages(val) -> float:
+    """Extract page count from details struct.
+    
+    Tries Print length, Paperback, Hardcover, Mass Market Paperback, Board book
+    in order of priority. Returns NaN if nothing found.
+    """
+    if not isinstance(val, dict):
+        return float("nan")
+    for key in ("Print length", "Paperback", "Hardcover",
+                "Mass Market Paperback", "Board book"):
+        raw = val.get(key)
+        if raw and raw != "None":
+            try:
+                return float(raw.split()[0].replace(",", ""))
+            except (ValueError, IndexError):
+                continue
+    return float("nan")
+
+
+
+
+def _extract_pub_year(val) -> float:
+    """Extract publication year from details struct.
+    
+    First tries 'Publication date' field, then falls back to parsing
+    the year from 'Publisher' (e.g. 'Scholastic; edition (October 29, 2013)').
+    Returns NaN if nothing found.
+    """
+    if not isinstance(val, dict):
+        return float("nan")
+    pub_date = val.get("Publication date")
+    if pub_date and pub_date != "None":
+        match = re.search(r"(\d{4})", pub_date)
+        if match:
+            return float(match.group(1))
+    publisher = val.get("Publisher")
+    if publisher and publisher != "None":
+        match = re.search(r"\(.*?(\d{4})\)", publisher)
+        if match:
+            return float(match.group(1))
+    return float("nan")
+
+
+
+
+def _extract_book_format(val) -> str:
+    """Derive book format from details struct.
+    
+    Priority: board_book > hardcover > paperback > mass_market > spiral > ebook > unknown.
+    """
+    if not isinstance(val, dict):
+        return "unknown"
+    if val.get("Board book") not in (None, "None", ""):
+        return "board_book"
+    if val.get("Hardcover") not in (None, "None", ""):
+        return "hardcover"
+    if val.get("Paperback") not in (None, "None", ""):
+        return "paperback"
+    if val.get("Mass Market Paperback") not in (None, "None", ""):
+        return "mass_market"
+    if val.get("Spiral bound") not in (None, "None", ""):
+        return "spiral"
+    if val.get("File size") not in (None, "None", ""):
+        return "ebook"
+    return "unknown"
+
+
+def _extract_reading_age_min(val) -> float:
+    """Extract minimum reading age from details struct.
+    
+    Parses formats like '7 - 10 years', '11+ years, from customers'.
+    Returns NaN if absent.
+    """
+    if not isinstance(val, dict):
+        return float("nan")
+    ra = val.get("Reading age")
+    if not ra or ra == "None":
+        return float("nan")
+    match = re.search(r"(\d+)", ra)
+    return float(match.group(1)) if match else float("nan")
+
+
 
 def normalize_metadata_columns(
     df: pd.DataFrame
@@ -940,6 +1028,12 @@ def normalize_metadata_columns(
     if "details" in df.columns:
         df["details_publisher"] = _flatten_struct_col(df["details"], "Publisher")
         df["details_language"] = _flatten_struct_col(df["details"], "Language")
+
+        df["nb_pages"] = df["details"].apply(_extract_nb_pages)
+        df["pub_year"] = df["details"].apply(_extract_pub_year)
+        df["book_format"] = df["details"].apply(_extract_book_format)
+        df["reading_age_min"] = df["details"].apply(_extract_reading_age_min)
+
         df.drop(columns=["details"], inplace=True)
 
     if "price" in df.columns:
