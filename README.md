@@ -206,7 +206,7 @@ Après la phase de jointure, les scripts suivants permettent de projeter les pro
 
 | Script | Description |
 |--------|-------------|
-| `scripts/dimension_reduction.py` | Applique TruncatedSVD sur les représentations TF-IDF des items (dimensions: 50, 100, 200, 300). Sauvegarde les modèles SVD et matrices réduites dans `results/svd/<variant>/`. |
+| `scripts/dimension_reduction.py` | Applique TruncatedSVD sur les représentations TF-IDF des items (dimensions: 50, 100, 200, 300). Sauvegarde les modèles SVD et matrices réduites dans `data/joining/<variant>/`, et les métriques/rapports dans `results/svd/<variant>/`. |
 | `scripts/user_profile_projection.py` | Projette les profils utilisateurs TF-IDF dans l'espace latent en utilisant les modèles SVD pré-entraînés. Produit `user_profiles_latent_{dim}d.npy` et rapports JSON. |
 | `scripts/validate_user_projection.py` | Valide que les profils et items sont dans le même espace vectoriel et vérifie l'absence de données de test. |
 | `scripts/example_latent_recommendation.py` | Exemple d'utilisation : charge les matrices latentes et génère des recommandations par similarité cosinus. |
