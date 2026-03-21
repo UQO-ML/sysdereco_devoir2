@@ -25,19 +25,19 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
-from scipy.sparse import csr_matrix, load_npz
+from scipy.sparse import csr_matrix, issparse, load_npz
 
 # Configuration
 LATENT_DIMENSIONS = [50, 100, 200, 300]
 RESULTS_DIR = Path("results/svd")
-GLOB_PATTERN = "*_clean_joined.parquet"
-GLOB_SUFFIX = GLOB_PATTERN.replace("*", "")
+DATA_DIR = Path("data/joining")
 
-# Artéfacts d'entrée
+# Artéfacts d'entrée (produits par user_profile.py / Tâche 0)
 ARTIFACTS_IN = {
-    "tfidf_matrix": "books_representation_sparse.npz",
     "dimension_comparison": "dimension_comparison.json",
+    "user_profiles_tfidf_npz": "user_profiles_tfidf.npz",
+    "user_profiles_tfidf_npy": "user_profiles_tfidf.npy",
+    "user_ids": "user_ids.npy",
 }
 
 # Artéfacts de sortie
@@ -56,135 +56,83 @@ class LatentUserProfileProjector:
         self,
         data_dir: Path,
         results_dir: Path,
-        train_path: Path,
         verbose: bool = True
     ):
         self.data_dir = data_dir
         self.results_dir = results_dir
-        self.train_path = train_path
         self.variant = data_dir.name
         self.verbose = verbose
 
-        # Données chargées
-        self._tfidf_matrix: Optional[csr_matrix] = None
-        self._item_ids: Optional[np.ndarray] = None
-        self._item_index: Optional[Dict[str, int]] = None
-        self._train_df: Optional[pd.DataFrame] = None
+        # Profils chargés depuis les artéfacts Tâche 0
+        self._profiles_tfidf: Optional[csr_matrix] = None
+        self._user_ids: Optional[List[str]] = None
 
-    def load_artifacts(self) -> LatentUserProfileProjector:
-        """Charge la matrice TF-IDF des items et les IDs."""
+    def load_artifacts(self) -> "LatentUserProfileProjector":
+        """Charge les profils TF-IDF et user_ids produits par user_profile.py (Tâche 0)."""
         if self.verbose:
             print(f"\n[Load Artifacts {self.variant}]")
 
         t0 = time.perf_counter()
 
-        # Charger matrice TF-IDF des items
-        tfidf_path = self.data_dir / ARTIFACTS_IN["tfidf_matrix"]
-        if not tfidf_path.exists():
-            raise FileNotFoundError(f"Matrice TF-IDF introuvable: {tfidf_path}")
+        # Priorité au format sparse (.npz), sinon dense (.npy)
+        npz_path = self.data_dir / ARTIFACTS_IN["user_profiles_tfidf_npz"]
+        npy_path = self.data_dir / ARTIFACTS_IN["user_profiles_tfidf_npy"]
 
-        self._tfidf_matrix = load_npz(tfidf_path).tocsr()
-
-        # Charger les IDs des items depuis le parquet source
-        parquet_path = self.data_dir.parent / f"{self.variant}{GLOB_SUFFIX}"
-        if not parquet_path.exists():
-            raise FileNotFoundError(f"Parquet source introuvable: {parquet_path}")
-
-        df_src = pd.read_parquet(parquet_path, columns=["parent_asin"])
-        dedup = df_src.drop_duplicates(subset=["parent_asin"], keep="first")
-        self._item_ids = dedup["parent_asin"].values
-
-        # Créer l'index item_id -> row
-        dedup["_row"] = np.arange(len(dedup))
-        self._item_index = dict(zip(dedup["parent_asin"].values, dedup["_row"].values))
-
-        if len(self._item_ids) != self._tfidf_matrix.shape[0]:
-            raise ValueError(
-                f"Incohérence dimensions: {len(self._item_ids)} item_ids vs "
-                f"{self._tfidf_matrix.shape[0]} lignes TF-IDF"
+        if npz_path.exists():
+            try:
+                self._profiles_tfidf = load_npz(npz_path).tocsr()
+                profiles_file = npz_path
+            except Exception as e:
+                raise ValueError(f"Fichier corrompu: {npz_path}: {e}")
+        elif npy_path.exists():
+            self._profiles_tfidf = np.load(npy_path)
+            profiles_file = npy_path
+        else:
+            raise FileNotFoundError(
+                f"Profils TF-IDF introuvables dans {self.data_dir}.\n"
+                "Exécutez d'abord user_profile.py (Tâche 0)."
             )
 
-        # Charger les interactions d'entraînement
-        if not self.train_path.exists():
-            raise FileNotFoundError(f"Train interactions introuvable: {self.train_path}")
+        user_ids_path = self.data_dir / ARTIFACTS_IN["user_ids"]
+        if not user_ids_path.exists():
+            raise FileNotFoundError(
+                f"user_ids.npy introuvable: {user_ids_path}.\n"
+                "Exécutez d'abord user_profile.py (Tâche 0)."
+            )
 
-        self._train_df = pd.read_parquet(
-            self.train_path,
-            columns=["user_id", "parent_asin", "rating"]
-        )
+        self._user_ids = np.load(user_ids_path, allow_pickle=True).tolist()
+
+        if len(self._user_ids) != self._profiles_tfidf.shape[0]:
+            raise ValueError(
+                f"Incohérence: {len(self._user_ids)} user_ids vs "
+                f"{self._profiles_tfidf.shape[0]} lignes de profils"
+            )
 
         if self.verbose:
-            density = self._tfidf_matrix.nnz / (
-                self._tfidf_matrix.shape[0] * self._tfidf_matrix.shape[1]
-            )
-            print(f"  TF-IDF shape: {self._tfidf_matrix.shape}, "
-                  f"density={density:.6f}")
-            print(f"  Items: {len(self._item_ids):,}")
-            print(f"  Train interactions: {len(self._train_df):,}")
+            shape = self._profiles_tfidf.shape
+            if issparse(self._profiles_tfidf):
+                density = self._profiles_tfidf.nnz / (shape[0] * shape[1])
+                print(f"  Profils TF-IDF (sparse): {shape}, density={density:.6f}")
+            else:
+                print(f"  Profils TF-IDF (dense): {shape}")
+            print(f"  Users: {len(self._user_ids):,}")
+            print(f"  Source: {profiles_file.name}")
             print(f"  Time: {time.perf_counter() - t0:.2f}s")
 
         return self
 
-    def build_tfidf_profiles(self) -> Tuple[csr_matrix, List[str]]:
-        """Construit les profils utilisateurs dans l'espace TF-IDF.
+    def load_tfidf_profiles(self) -> Tuple[csr_matrix, List[str]]:
+        """Retourne les profils TF-IDF et user_ids chargés depuis les artéfacts Tâche 0.
 
-        Algorithme:
-        1. Filtrer les interactions pour ne garder que les items présents dans la matrice
-        2. Construire une matrice de pondération R (users × items) où R[u,i] = rating
-        3. Calculer les profils: P = (R @ TF-IDF) / sum(ratings)
+        Pré-requis: load_artifacts() doit avoir été appelé.
 
         Returns:
-            profiles_tfidf: matrice sparse (n_users × n_features_tfidf)
+            profiles_tfidf: matrice (n_users × n_features_tfidf) — sparse ou dense
             user_ids: liste des user_ids correspondant aux lignes
         """
-        if self.verbose:
-            print("\n[Build TF-IDF Profiles]")
-
-        t0 = time.perf_counter()
-
-        # Filtrer pour ne garder que les items présents
-        valid_mask = self._train_df["parent_asin"].isin(self._item_index)
-        df_valid = self._train_df[valid_mask].copy()
-
-        if self.verbose:
-            print(f"  Valid interactions: {len(df_valid):,} / {len(self._train_df):,} "
-                  f"({100*len(df_valid)/len(self._train_df):.1f}%)")
-
-        # Récupérer tous les utilisateurs uniques
-        user_ids = sorted(df_valid["user_id"].unique())
-        user_to_idx = {u: i for i, u in enumerate(user_ids)}
-
-        # Construire la matrice de pondération R
-        row = df_valid["user_id"].map(user_to_idx).values
-        col = df_valid["parent_asin"].map(self._item_index).values
-        weights = df_valid["rating"].values.astype(np.float32)
-
-        R = csr_matrix(
-            (weights, (row, col)),
-            shape=(len(user_ids), self._tfidf_matrix.shape[0]),
-        )
-
-        # Calculer les profils: P = (R @ TF-IDF) / sum(ratings)
-        profiles_tfidf = (R @ self._tfidf_matrix).tocsr()
-
-        # Normaliser par la somme des poids
-        weight_sums = np.array(R.sum(axis=1)).ravel()
-        weight_sums[weight_sums == 0] = 1.0
-
-        inv = (1.0 / weight_sums).astype(np.float32)
-        profiles_tfidf = profiles_tfidf.multiply(inv[:, None]).tocsr()
-        profiles_tfidf.data = profiles_tfidf.data.astype(np.float32, copy=False)
-
-        if self.verbose:
-            density = profiles_tfidf.nnz / (
-                profiles_tfidf.shape[0] * profiles_tfidf.shape[1]
-            )
-            print(f"  Profiles shape: {profiles_tfidf.shape}")
-            print(f"  Users: {len(user_ids):,}")
-            print(f"  Density: {density:.6f}")
-            print(f"  Time: {time.perf_counter() - t0:.2f}s")
-
-        return profiles_tfidf, user_ids
+        if self._profiles_tfidf is None or self._user_ids is None:
+            raise RuntimeError("Appelez load_artifacts() avant load_tfidf_profiles().")
+        return self._profiles_tfidf, self._user_ids
 
     def project_profiles_to_latent(
         self,
@@ -227,7 +175,7 @@ class LatentUserProfileProjector:
         # Vérifier que les items projetés existent
         items_latent_path = self.data_dir / f"items_reduced_svd_{dimension}d.npy"
         if not items_latent_path.exists():
-            raise FileNotFoundError(f"Items latents introuvables: {items_latent_path}")
+            raise FileNotFoundError(f"Items latents introuvables: {items_latent_path}, exécutez d'abord dimension_reduction.py")
 
         items_latent = np.load(items_latent_path)
 
@@ -272,21 +220,22 @@ class LatentUserProfileProjector:
         paths = {}
 
         # Sauvegarder les profils latents
-        profiles_path = self.data_dir / f"user_profiles_latent_{dimension}d.npy"
+        # profiles_path = self.data_dir / f"user_profiles_latent_{dimension}d.npy"
+        profiles_path = self.data_dir / ARTIFACTS_OUT["latent_user_profiles"].format(dim=dimension)
         np.save(profiles_path, latent_profiles)
         paths["latent_user_profiles"] = str(profiles_path)
 
         # Sauvegarder les user_ids (alignés avec les profils latents sauvegardés)
-        user_ids_path = self.results_dir / "user_ids_latent.npy"
+        user_ids_path = self.data_dir / ARTIFACTS_OUT["user_ids"]
         np.save(user_ids_path, np.array(user_ids))
         paths["user_ids"] = str(user_ids_path)
         # Sauvegarder les métriques
-        metrics_path = self.results_dir / f"user_profile_projection_{dimension}d.json"
+        metrics_path = self.results_dir / ARTIFACTS_OUT["projection_report"].format(dim=dimension)
         with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=2, ensure_ascii=False)
         paths["metrics"] = str(metrics_path)
         paths["latent_item_vectors"] = str(
-            self.data_dir / f"items_reduced_svd_{dimension}d.npy"
+            self.data_dir / ARTIFACTS_OUT["latent_item_vectors"].format(dim=dimension)
         )
 
         if self.verbose:
@@ -299,7 +248,6 @@ class LatentUserProfileProjector:
 
 def run_projection_pipeline(
     data_dir: Path,
-    train_path: Path,
     verbose: bool = True
 ) -> Dict[str, Any]:
     """Exécute le pipeline complet de projection des profils utilisateurs."""
@@ -316,15 +264,14 @@ def run_projection_pipeline(
     projector = LatentUserProfileProjector(
         data_dir=data_dir,
         results_dir=results_dir,
-        train_path=train_path,
         verbose=verbose
     )
 
-    # Charger les artéfacts nécessaires
+    # Charger les profils produits par user_profile.py (Tâche 0)
     projector.load_artifacts()
 
-    # Construire les profils TF-IDF
-    profiles_tfidf, user_ids = projector.build_tfidf_profiles()
+    # Récupérer les profils déjà construits
+    profiles_tfidf, user_ids = projector.load_tfidf_profiles()
 
     # Projeter dans chaque dimension latente
     all_metrics = []
@@ -364,7 +311,7 @@ def run_projection_pipeline(
     }
 
     # Sauvegarder le rapport complet
-    report_path = results_dir / "user_profile_projection_report.json"
+    report_path = results_dir / ARTIFACTS_OUT["projection_report"]
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
@@ -382,32 +329,39 @@ def run_projection_pipeline(
 
 def main() -> None:
     """Point d'entrée principal."""
-    # Découvrir tous les variants disponibles
-    variants = []
-    for train_path in sorted(Path("data/joining").glob("*/train_interactions.parquet")):
-        variant_name = train_path.parent.name
-        data_dir = Path("data/joining") / variant_name
+    # Découvrir tous les variants disposant des artéfacts Tâche 0 + SVD
+    data_dirs = []
+    for variant_dir in sorted(DATA_DIR.iterdir()):
+        if not variant_dir.is_dir():
+            continue
+        variant_name = variant_dir.name
 
-        # Vérifier que les artéfacts SVD existent
-        svd_results_dir = RESULTS_DIR / variant_name
-        if not (svd_results_dir / ARTIFACTS_IN["dimension_comparison"]).exists():
-            print(f"[SKIP] {variant_name}: artéfacts SVD manquants")
+        # Vérifier que les profils TF-IDF (Tâche 0) existent
+        has_profiles = (
+            (variant_dir / ARTIFACTS_IN["user_profiles_tfidf_npz"]).exists()
+            or (variant_dir / ARTIFACTS_IN["user_profiles_tfidf_npy"]).exists()
+        )
+        if not has_profiles:
+            print(f"[SKIP] {variant_name}: profils TF-IDF manquants "
+                  f"(exécutez user_profile.py)")
             continue
 
-        variants.append((data_dir, train_path))
+        # Vérifier que les artéfacts SVD existent
+        if not (RESULTS_DIR / variant_name / ARTIFACTS_IN["dimension_comparison"]).exists():
+            print(f"[SKIP] {variant_name}: artéfacts SVD manquants "
+                  f"(exécutez dimension_reduction.py)")
+            continue
 
-    if not variants:
+        data_dirs.append(variant_dir)
+
+    if not data_dirs:
         print("Aucun variant trouvé avec les artéfacts nécessaires.")
-        print("Exécutez d'abord dimension_reduction.py")
+        print("Exécutez d'abord user_profile.py puis dimension_reduction.py.")
         return
 
     # Projeter les profils pour chaque variant
-    for data_dir, train_path in variants:
-        report = run_projection_pipeline(
-            data_dir=data_dir,
-            train_path=train_path,
-            verbose=True
-        )
+    for data_dir in data_dirs:
+        report = run_projection_pipeline(data_dir=data_dir, verbose=True)
 
         if report:
             print(f"\n--- Résumé {report['variant']} ---")

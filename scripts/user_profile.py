@@ -26,13 +26,15 @@ NOTEBOOK_ARTIFACTS_IN = {"tfidf_matrix": NOTEBOOK_NPZ}
 ARTIFACTS_IN = {
     "tfidf_matrix": "books_representation_sparse.npz",
     "svd_matrix": "tfidf_svd_matrix.npy",
-    # Nouveau: support des matrices SVD réduites par dimension_reduction.py
+    # Défini dans dimension_reduction.py: "LATENT_DIMENSIONS = [50, 100, 200, 300]"
     "svd_reduced_50d": "items_reduced_svd_50d.npy",
     "svd_reduced_100d": "items_reduced_svd_100d.npy",
     "svd_reduced_200d": "items_reduced_svd_200d.npy",
     "svd_reduced_300d": "items_reduced_svd_300d.npy",
     "dimension_comparison": "dimension_comparison.json",
 }
+
+
 
 ARTIFACTS_OUT = {
     "profiles_tfidf_npy": "user_profiles_tfidf.npy",
