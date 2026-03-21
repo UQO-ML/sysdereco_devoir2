@@ -1,0 +1,27 @@
+{
+  "variant": "temporal_pre_split",
+  "tfidf_profiles": {
+    "mode": "tfidf",
+    "n_users_total": 6739,
+    "n_users_active": 6739,
+    "n_users_cold_start": 0,
+    "min_interactions_threshold": 1,
+    "cold_start_strategy": "centroïde global (moyenne de tous les items)",
+    "weighting": "rating comme poids (profil = Σ(rating_i × item_vec_i) / Σ(rating_i))",
+    "profile_shape": [
+      6739,
+      43045
+    ],
+    "items_used": "tous les items notés dans le train",
+    "hypotheses": [
+      "Combinaison linéaire des vecteurs items pondérée par rating",
+      "Goûts stables dans le temps (pas de décroissance temporelle)",
+      "Tous les ratings ≥ 1 comptent comme préférence positive"
+    ],
+    "build_time_s": 0.72,
+    "profile_storage": "sparse_csr_npz",
+    "profile_nnz": 21942485,
+    "profile_density": 0.07564281
+  },
+  "svd_profiles": {}
+}

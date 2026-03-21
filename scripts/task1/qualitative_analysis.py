@@ -347,7 +347,10 @@ def qualitative_analysis(variant_dir: Path, top_n: int, output_md: Path) -> None
 
 def main() -> None:
     for variant_dir in DATA_DIR:
-        output_md = Path(variant_dir / "qualitative_analysis.md")
+        
+        results_report_dir = Path("results") / variant_dir.relative_to("data")
+        results_report_dir.mkdir(parents=True, exist_ok=True)
+        output_md = Path(results_report_dir / "qualitative_analysis.md")
         qualitative_analysis(variant_dir=variant_dir, top_n=TOP_N, output_md=output_md)
 
 

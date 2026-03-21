@@ -342,7 +342,10 @@ def save_profiles(
     np.save(out_dir / ARTIFACTS_OUT["user_ids"], np.array(user_ids))
     paths["user_ids"] = str(out_dir / ARTIFACTS_OUT["user_ids"])
 
-    with open(out_dir / ARTIFACTS_OUT["report"], "w", encoding="utf-8") as f:
+    results_report_dir = Path("results") / out_dir.relative_to("data")
+    results_report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = results_report_dir / ARTIFACTS_OUT["report"]
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
     paths["report"] = str(out_dir / ARTIFACTS_OUT["report"])
 
