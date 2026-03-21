@@ -2,7 +2,10 @@
 Tâche 2 - Réduction de dimension SVD.
 
 Ce script exécute une réduction TruncatedSVD sur la matrice TF-IDF de chaque
-variant découvert dans `data/joining` et sauvegarde tous les artefacts dans
+variant découvert dans `data/joining`. Les matrices réduites, les modèles
+et les identifiants d'items sont sauvegardés dans le répertoire de données
+de chaque variant (par ex. `data/joining/<variant>/`), tandis que les
+métriques, rapports et analyses de compromis sont sauvegardés dans
 `results/svd`.
 
 Usage en script : python dimension_reduction.py
