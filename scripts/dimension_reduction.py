@@ -255,7 +255,7 @@ def run_svd_pipeline(data_dir: Path, verbose: bool = True) -> Dict[str, Any]:
     report = {
         "variant": variant,
         "method": "svd",
-        "output_dir": str(variant_results_dir),
+        "output_dir": variant_results_dir.as_posix(),
         "dimensions_tested": LATENT_DIMENSIONS,
         "comparison_results": comparison_results,
         "analysis": analysis,
