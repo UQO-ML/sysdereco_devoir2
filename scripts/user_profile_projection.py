@@ -22,7 +22,7 @@ import json
 import pickle
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.sparse import csr_matrix, issparse, load_npz
@@ -45,6 +45,7 @@ ARTIFACTS_OUT = {
     "latent_user_profiles": "user_profiles_latent_{dim}d.npy",
     "latent_item_vectors": "items_reduced_svd_{dim}d.npy",  # Référence aux items déjà créés
     "user_ids": "user_ids_latent.npy",
+    "projection_metrics": "user_profile_projection_metrics_{dim}d.json",
     "projection_report": "user_profile_projection_report.json",
 }
 
@@ -64,7 +65,7 @@ class LatentUserProfileProjector:
         self.verbose = verbose
 
         # Profils chargés depuis les artéfacts Tâche 0
-        self._profiles_tfidf: Optional[csr_matrix] = None
+        self._profiles_tfidf: Optional[Union[csr_matrix, np.ndarray]] = None
         self._user_ids: Optional[List[str]] = None
 
     def load_artifacts(self) -> "LatentUserProfileProjector":
@@ -121,7 +122,7 @@ class LatentUserProfileProjector:
 
         return self
 
-    def load_tfidf_profiles(self) -> Tuple[csr_matrix, List[str]]:
+    def load_tfidf_profiles(self) -> Tuple[Union[csr_matrix, np.ndarray], List[str]]:
         """Retourne les profils TF-IDF et user_ids chargés depuis les artéfacts Tâche 0.
 
         Pré-requis: load_artifacts() doit avoir été appelé.
@@ -136,7 +137,7 @@ class LatentUserProfileProjector:
 
     def project_profiles_to_latent(
         self,
-        profiles_tfidf: csr_matrix,
+        profiles_tfidf: Union[csr_matrix, np.ndarray],
         user_ids: List[str],
         dimension: int
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -229,8 +230,8 @@ class LatentUserProfileProjector:
         user_ids_path = self.data_dir / ARTIFACTS_OUT["user_ids"]
         np.save(user_ids_path, np.array(user_ids))
         paths["user_ids"] = str(user_ids_path)
-        # Sauvegarder les métriques
-        metrics_path = self.results_dir / ARTIFACTS_OUT["projection_report"].format(dim=dimension)
+        # Sauvegarder les métriques par dimension
+        metrics_path = self.results_dir / ARTIFACTS_OUT["projection_metrics"].format(dim=dimension)
         with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=2, ensure_ascii=False)
         paths["metrics"] = str(metrics_path)
@@ -294,24 +295,27 @@ def run_projection_pipeline(
         all_metrics.append(metrics)
         artifact_paths[f"{dim}d"] = paths
 
-    # Rapport final
-    report = {
-        "variant": variant,
-        "method": "user_profile_projection",
-        "output_dir": results_dir.as_posix(),
-        "train_path": (data_dir / "train_interactions.parquet").as_posix(), # Pour la contrainte "no_test_data_used"
-        "dimensions_tested": LATENT_DIMENSIONS,
-        "projection_results": all_metrics,
-        "artifact_paths": artifact_paths,
-        "constraints_satisfied": {
-            "same_vector_space": all(m["same_vector_space"] for m in all_metrics),
-            "no_test_data_used": True,
-            "consistent_with_items": True,
-        },
-        "build_time_s": round(time.perf_counter() - t0, 2),
-    }
+        train_path = data_dir / "train_interactions.parquet"
+        no_test_data_used = train_path.is_file()
+        consistent_with_items = all(m.get("same_vector_space") for m in all_metrics)
+        
+        report = {
+            "variant": variant,
+            "method": "user_profile_projection",
+            "output_dir": results_dir.as_posix(),
+            "train_path": train_path.as_posix(),  # Pour la contrainte "no_test_data_used"
+            "dimensions_tested": LATENT_DIMENSIONS,
+            "projection_results": all_metrics,
+            "artifact_paths": artifact_paths,
+            "constraints_satisfied": {
+                "same_vector_space": all(m["same_vector_space"] for m in all_metrics),
+                "no_test_data_used": no_test_data_used,
+                "consistent_with_items": consistent_with_items,
+            },
+            "build_time_s": round(time.perf_counter() - t0, 2),
+        }
 
-    # Sauvegarder le rapport complet
+        # Sauvegarder le rapport complet
     report_path = results_dir / ARTIFACTS_OUT["projection_report"]
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)

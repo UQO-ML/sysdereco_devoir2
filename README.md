@@ -221,12 +221,7 @@ python scripts/user_profile_projection.py
 
 # 3. Validation des sorties
 python scripts/validate_user_projection.py
-
-# 4. Exemple de recommandation
-python scripts/example_latent_recommendation.py
 ```
-
-Voir `docs/task_2.0.2_user_profile_projection.md` pour la documentation complète.
 
 ---
 

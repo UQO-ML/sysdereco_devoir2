@@ -61,15 +61,18 @@ def validate_projection(variant: str, data_dir: Path, results_dir: Path) -> Dict
 
     train_path = report.get("train_path") or ""
     expected_train_filename = "train_interactions.parquet"
-    uses_expected_train = bool(train_path) and Path(train_path).name == expected_train_filename
-
+    train_path_obj = Path(train_path) if train_path else None
+    train_path_exists = bool(train_path_obj and train_path_obj.exists())
+    uses_expected_train = bool(train_path_obj) and train_path_obj.name == expected_train_filename and train_path_exists
     # On considère que la contrainte "pas de données de test" est satisfaite
-    # seulement si le flag et le chemin du train sont cohérents.
+    # seulement si le flag est à True, que le chemin pointe vers le bon fichier
+    # *et* que ce fichier existe réellement.
     checks["no_test_data"] = no_test_flag and uses_expected_train
     print(
         "Pas de données de test: "
         f"{'Oui' if checks['no_test_data'] else 'Non'} "
-        f"(no_test_data_used={no_test_raw!r}, train_path={train_path!r})"
+        f"(no_test_data_used={no_test_raw!r}, train_path={train_path!r}, "
+        f"train_exists={train_path_exists})"
     )
 
     # Vérifier que la projection utilisateur est cohérente avec celle des items
