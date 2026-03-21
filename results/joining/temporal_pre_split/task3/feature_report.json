@@ -1,0 +1,295 @@
+{
+  "variant": "temporal_pre_split",
+  "n_pairs": 923752,
+  "n_positive": 230938,
+  "n_negative": 692814,
+  "n_users": 6739,
+  "n_items": 22007,
+  "n_features": 28,
+  "feature_names": [
+    "average_rating",
+    "log_rating_number",
+    "price",
+    "item_nb_interactions_train",
+    "item_mean_rating_train",
+    "user_nb_interactions",
+    "user_mean_rating",
+    "user_std_rating",
+    "user_mean_helpful",
+    "user_verified_ratio",
+    "user_genre_diversity",
+    "item_mean_helpful",
+    "nb_pages",
+    "page_deviation",
+    "pub_year",
+    "book_age",
+    "era_match",
+    "fmt_ebook",
+    "fmt_hardcover",
+    "fmt_paperback",
+    "fmt_mass_market",
+    "cosine_similarity",
+    "cosine_ecart",
+    "already_read_author",
+    "nb_books_same_author",
+    "user_avg_rating_author",
+    "genre_match",
+    "user_nb_genres_explored"
+  ],
+  "label_distribution": {
+    "binary_1_relevant": 205081,
+    "binary_0_irrelevant": 718671,
+    "relevance_threshold": 4.0
+  },
+  "rating_distribution": {
+    "rating_0": 692814,
+    "rating_1": 1768,
+    "rating_2": 4605,
+    "rating_3": 19484,
+    "rating_4": 68185,
+    "rating_5": 136896
+  },
+  "groups_stats": {
+    "n_groups": 6739,
+    "mean_group_size": 137.0755304941386,
+    "min_group_size": 8,
+    "max_group_size": 1632
+  },
+  "feature_stats": {
+    "average_rating": {
+      "mean": 4.2998,
+      "std": 0.7585,
+      "min": 0.0,
+      "max": 5.0,
+      "pct_zero": 2.71,
+      "pct_nan": 0.0
+    },
+    "log_rating_number": {
+      "mean": 6.5233,
+      "std": 2.3031,
+      "min": 0.0,
+      "max": 13.3211,
+      "pct_zero": 2.71,
+      "pct_nan": 0.0
+    },
+    "price": {
+      "mean": 8.4786,
+      "std": 7.2822,
+      "min": 0.0,
+      "max": 296.01,
+      "pct_zero": 27.64,
+      "pct_nan": 0.0
+    },
+    "item_nb_interactions_train": {
+      "mean": 14.8822,
+      "std": 22.8109,
+      "min": 0.0,
+      "max": 302.0,
+      "pct_zero": 2.71,
+      "pct_nan": 0.0
+    },
+    "item_mean_rating_train": {
+      "mean": 4.335,
+      "std": 0.8378,
+      "min": 0.0,
+      "max": 5.0,
+      "pct_zero": 2.71,
+      "pct_nan": 0.0
+    },
+    "user_nb_interactions": {
+      "mean": 54.2983,
+      "std": 49.0822,
+      "min": 2.0,
+      "max": 408.0,
+      "pct_zero": 0.0,
+      "pct_nan": 0.0
+    },
+    "user_mean_rating": {
+      "mean": 4.4456,
+      "std": 0.4768,
+      "min": 1.8571,
+      "max": 5.0,
+      "pct_zero": 0.0,
+      "pct_nan": 0.0
+    },
+    "user_std_rating": {
+      "mean": 0.5557,
+      "std": 0.3216,
+      "min": 0.0,
+      "max": 2.3094,
+      "pct_zero": 11.44,
+      "pct_nan": 0.0
+    },
+    "user_mean_helpful": {
+      "mean": 0.8121,
+      "std": 2.6463,
+      "min": 0.0,
+      "max": 101.5833,
+      "pct_zero": 2.79,
+      "pct_nan": 0.0
+    },
+    "user_verified_ratio": {
+      "mean": 0.2759,
+      "std": 0.3518,
+      "min": 0.0,
+      "max": 1.0,
+      "pct_zero": 27.88,
+      "pct_nan": 0.0
+    },
+    "user_genre_diversity": {
+      "mean": 4.913,
+      "std": 3.751,
+      "min": 1.0,
+      "max": 28.0,
+      "pct_zero": 0.0,
+      "pct_nan": 0.0
+    },
+    "item_mean_helpful": {
+      "mean": 0.7445,
+      "std": 2.298,
+      "min": 0.0,
+      "max": 224.0,
+      "pct_zero": 29.54,
+      "pct_nan": 0.0
+    },
+    "nb_pages": {
+      "mean": 280.6172,
+      "std": 154.2802,
+      "min": 0.0,
+      "max": 2744.0,
+      "pct_zero": 8.5,
+      "pct_nan": 0.0
+    },
+    "page_deviation": {
+      "mean": -36.73,
+      "std": 162.5547,
+      "min": -567.4706,
+      "max": 2610.4092,
+      "pct_zero": 0.02,
+      "pct_nan": 0.0
+    },
+    "pub_year": {
+      "mean": 1861.3722,
+      "std": 543.6139,
+      "min": 0.0,
+      "max": 2023.0,
+      "pct_zero": 7.86,
+      "pct_nan": 0.0
+    },
+    "book_age": {
+      "mean": 161.6278,
+      "std": 543.6139,
+      "min": 0.0,
+      "max": 2023.0,
+      "pct_zero": 2.5,
+      "pct_nan": 0.0
+    },
+    "era_match": {
+      "mean": 160.2417,
+      "std": 543.2858,
+      "min": 0.0,
+      "max": 2023.0,
+      "pct_zero": 26.72,
+      "pct_nan": 0.0
+    },
+    "fmt_ebook": {
+      "mean": 0.427,
+      "std": 0.4946,
+      "min": 0.0,
+      "max": 1.0,
+      "pct_zero": 57.3,
+      "pct_nan": 0.0
+    },
+    "fmt_hardcover": {
+      "mean": 0.193,
+      "std": 0.3947,
+      "min": 0.0,
+      "max": 1.0,
+      "pct_zero": 80.7,
+      "pct_nan": 0.0
+    },
+    "fmt_paperback": {
+      "mean": 0.2799,
+      "std": 0.4489,
+      "min": 0.0,
+      "max": 1.0,
+      "pct_zero": 72.01,
+      "pct_nan": 0.0
+    },
+    "fmt_mass_market": {
+      "mean": 0.0161,
+      "std": 0.1257,
+      "min": 0.0,
+      "max": 1.0,
+      "pct_zero": 98.39,
+      "pct_nan": 0.0
+    },
+    "cosine_similarity": {
+      "mean": 0.5731,
+      "std": 0.0798,
+      "min": 0.0001,
+      "max": 0.9995,
+      "pct_zero": 0.0,
+      "pct_nan": 0.0
+    },
+    "cosine_ecart": {
+      "mean": 0.0,
+      "std": 0.0789,
+      "min": -0.5851,
+      "max": 0.5044,
+      "pct_zero": 0.0,
+      "pct_nan": 0.0
+    },
+    "already_read_author": {
+      "mean": 0.2396,
+      "std": 0.4268,
+      "min": 0.0,
+      "max": 1.0,
+      "pct_zero": 76.04,
+      "pct_nan": 0.0
+    },
+    "nb_books_same_author": {
+      "mean": 0.6991,
+      "std": 2.9494,
+      "min": 0.0,
+      "max": 81.0,
+      "pct_zero": 76.04,
+      "pct_nan": 0.0
+    },
+    "user_avg_rating_author": {
+      "mean": 1.0652,
+      "std": 1.934,
+      "min": 0.0,
+      "max": 5.0,
+      "pct_zero": 76.04,
+      "pct_nan": 0.0
+    },
+    "genre_match": {
+      "mean": 0.7374,
+      "std": 0.44,
+      "min": 0.0,
+      "max": 1.0,
+      "pct_zero": 26.26,
+      "pct_nan": 0.0
+    },
+    "user_nb_genres_explored": {
+      "mean": 4.913,
+      "std": 3.751,
+      "min": 1.0,
+      "max": 28.0,
+      "pct_zero": 0.0,
+      "pct_nan": 0.0
+    }
+  },
+  "X_shape": [
+    923752,
+    28
+  ],
+  "X_dtype": "float32",
+  "X_memory_MiB": 98.7,
+  "neg_sampling": {
+    "n_neg_per_pos": 3,
+    "seed": 42
+  },
+  "elapsed_s": 33.89
+}

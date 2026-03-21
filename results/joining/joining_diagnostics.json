@@ -966,8 +966,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 3.8389,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable continue — nombre de pages."
         },
         {
           "column": "pub_year",
@@ -977,8 +977,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 3.5292,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable continue — année de publication."
         },
         {
           "column": "book_format",
@@ -988,8 +988,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 0.0,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable catégorielle — format du livre."
         },
         {
           "column": "reading_age_min",
@@ -999,8 +999,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 87.3394,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable continue — âge de lecture minimum."
         }
       ]
     },
@@ -1414,8 +1414,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 5.3194,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable continue — nombre de pages."
         },
         {
           "column": "pub_year",
@@ -1425,8 +1425,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 4.6869,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable continue — année de publication."
         },
         {
           "column": "book_format",
@@ -1436,8 +1436,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 0.0,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable catégorielle — format du livre."
         },
         {
           "column": "reading_age_min",
@@ -1447,8 +1447,8 @@
           "empty_pct": 0.0,
           "effective_missing_pct": 91.5306,
           "strategy": "au cas par cas / hors périmètre",
-          "column_type": "autre",
-          "justification": "—"
+          "column_type": "catégorielle (extraite de struct)",
+          "justification": "Variable continue — âge de lecture minimum."
         }
       ]
     }

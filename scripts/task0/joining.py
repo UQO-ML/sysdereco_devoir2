@@ -68,6 +68,10 @@ COLUMN_JUSTIFICATIONS: Dict[str, str] = {
     "average_rating": "Note moyenne agrégée, signal de popularité pour le modèle.",
     "rating_number": "Nombre total de notes, indicateur de popularité/confiance.",
     "price": "Prix du livre, 23.9% manquant → imputation médiane retenue car distribution asymétrique.",
+    "reading_age_min": "Âge de lecture minimum, variable continue.",
+    "pub_year": "Année de publication, variable continue.",
+    "book_format": "Format du livre, variable catégorielle.",
+    "nb_pages": "Nombre de pages, variable continue.",
     # Colonnes exclues
     "main_category": "Exclu : valeur quasi-constante ('Books' pour >99% des lignes).",
     "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
@@ -114,6 +118,10 @@ MISSINGNESS_JUSTIFICATIONS: Dict[str, str] = {
     "average_rating": "Signal de popularité agrégé ; NaN rare, imputation non nécessaire sauf si >5%.",
     "rating_number": "Volume de notes ; NaN rare, indicateur de confiance secondaire.",
     "price": "Distribution asymétrique, ~24% manquant → médiane plus robuste que la moyenne.",
+    "reading_age_min": "Variable continue — âge de lecture minimum.",
+    "pub_year": "Variable continue — année de publication.",
+    "book_format": "Variable catégorielle — format du livre.",
+    "nb_pages": "Variable continue — nombre de pages.",
 }
 
 COLUMN_TYPE_MAP: Dict[str, str] = {}
@@ -133,9 +141,10 @@ STRUCT_EXTRACT = "catégorielle (extraite de struct)"
 COLUMN_TYPE_MAP["author_name"] = STRUCT_EXTRACT
 COLUMN_TYPE_MAP["details_publisher"] = STRUCT_EXTRACT
 COLUMN_TYPE_MAP["details_language"] = STRUCT_EXTRACT
-COLUMN_TYPE_MAP["details_paperback"] = STRUCT_EXTRACT
-COLUMN_TYPE_MAP["details_hardcover"] = STRUCT_EXTRACT
-COLUMN_TYPE_MAP["details_print_length"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["nb_pages"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["pub_year"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["book_format"] = STRUCT_EXTRACT
+COLUMN_TYPE_MAP["reading_age_min"] = STRUCT_EXTRACT
 
 
 

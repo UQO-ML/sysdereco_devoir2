@@ -1,6 +1,6 @@
 # Diagnostic Task 0 — Préparation des données (P2)
 
-- generated_at: 2026-03-21T11:55:00
+- generated_at: 2026-03-21T14:39:54
 
 ## A. Réutilisation du sous-ensemble de travail
 - note: `P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).`
@@ -216,10 +216,10 @@
 | author_name | catégorielle (extraite de struct) | 0.0% | 4.2657% | 4.2657% | au cas par cas / hors périmètre | Extrait de struct author ; vide si auteur inconnu, impact limité. |
 | details_publisher | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, attribut catégoriel secondaire. |
 | details_language | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, quasi-constant ('English'). |
-| nb_pages | autre | 3.8389% | 0.0% | 3.8389% | au cas par cas / hors périmètre | — |
-| pub_year | autre | 3.5292% | 0.0% | 3.5292% | au cas par cas / hors périmètre | — |
-| book_format | autre | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
-| reading_age_min | autre | 87.3394% | 0.0% | 87.3394% | au cas par cas / hors périmètre | — |
+| nb_pages | catégorielle (extraite de struct) | 3.8389% | 0.0% | 3.8389% | au cas par cas / hors périmètre | Variable continue — nombre de pages. |
+| pub_year | catégorielle (extraite de struct) | 3.5292% | 0.0% | 3.5292% | au cas par cas / hors périmètre | Variable continue — année de publication. |
+| book_format | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Variable catégorielle — format du livre. |
+| reading_age_min | catégorielle (extraite de struct) | 87.3394% | 0.0% | 87.3394% | au cas par cas / hors périmètre | Variable continue — âge de lecture minimum. |
 
 ### temporal_pre_split
 
@@ -273,10 +273,10 @@
 | author_name | catégorielle (extraite de struct) | 0.0% | 5.8864% | 5.8864% | au cas par cas / hors périmètre | Extrait de struct author ; vide si auteur inconnu, impact limité. |
 | details_publisher | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, attribut catégoriel secondaire. |
 | details_language | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, quasi-constant ('English'). |
-| nb_pages | autre | 5.3194% | 0.0% | 5.3194% | au cas par cas / hors périmètre | — |
-| pub_year | autre | 4.6869% | 0.0% | 4.6869% | au cas par cas / hors périmètre | — |
-| book_format | autre | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
-| reading_age_min | autre | 91.5306% | 0.0% | 91.5306% | au cas par cas / hors périmètre | — |
+| nb_pages | catégorielle (extraite de struct) | 5.3194% | 0.0% | 5.3194% | au cas par cas / hors périmètre | Variable continue — nombre de pages. |
+| pub_year | catégorielle (extraite de struct) | 4.6869% | 0.0% | 4.6869% | au cas par cas / hors périmètre | Variable continue — année de publication. |
+| book_format | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Variable catégorielle — format du livre. |
+| reading_age_min | catégorielle (extraite de struct) | 91.5306% | 0.0% | 91.5306% | au cas par cas / hors périmètre | Variable continue — âge de lecture minimum. |
 
 
 ## F2. Qualité des champs textuels
