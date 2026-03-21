@@ -26,6 +26,12 @@ NOTEBOOK_ARTIFACTS_IN = {"tfidf_matrix": NOTEBOOK_NPZ}
 ARTIFACTS_IN = {
     "tfidf_matrix": "books_representation_sparse.npz",
     "svd_matrix": "tfidf_svd_matrix.npy",
+    # Nouveau: support des matrices SVD réduites par dimension_reduction.py
+    "svd_reduced_50d": "items_reduced_svd_50d.npy",
+    "svd_reduced_100d": "items_reduced_svd_100d.npy",
+    "svd_reduced_200d": "items_reduced_svd_200d.npy",
+    "svd_reduced_300d": "items_reduced_svd_300d.npy",
+    "dimension_comparison": "dimension_comparison.json",
 }
 
 ARTIFACTS_OUT = {
@@ -171,7 +177,12 @@ class ItemRepresentationLoader:
 
         Modes :
           - "tfidf"          : sparse TF-IDF (Tâche 1)
-          - "svd"            : dense SVD (Tâche 2)
+          - "svd"            : dense SVD (Tâche 2, legacy)
+          - "svd_50d"        : dense SVD réduite 50 dimensions
+          - "svd_100d"       : dense SVD réduite 100 dimensions
+          - "svd_200d"       : dense SVD réduite 200 dimensions
+          - "svd_300d"       : dense SVD réduite 300 dimensions
+          - "svd_auto"       : SVD dimension recommandée (depuis dimension_comparison.json)
           - "tfidf+numeric"  : TF-IDF concaténé avec features numériques
           - "svd+numeric"    : SVD concaténé avec features numériques
         """
@@ -181,6 +192,32 @@ class ItemRepresentationLoader:
             if self._svd is None:
                 raise RuntimeError("SVD matrix not available.")
             return self._svd
+        elif mode.startswith("svd_") and mode.endswith("d"):
+            # Charger matrice SVD réduite spécifique (ex: svd_100d)
+            dim = mode.replace("svd_", "").replace("d", "")
+            svd_path = self.dir / f"items_reduced_svd_{dim}d.npy"
+            if not svd_path.exists():
+                raise FileNotFoundError(f"Matrice SVD {dim}D introuvable: {svd_path}")
+            return np.load(svd_path)
+        elif mode == "svd_auto":
+            # Charger dimension recommandée depuis rapport
+            comparison_path = self.dir / ARTIFACTS_IN["dimension_comparison"]
+            if not comparison_path.exists():
+                raise FileNotFoundError(
+                    f"Rapport de comparaison introuvable: {comparison_path}\n"
+                    "Exécutez d'abord dimension_reduction.py"
+                )
+            with open(comparison_path) as f:
+                report = json.load(f)
+            recommended_dim = report.get("analysis", {}).get("recommendation", {}).get("dimension")
+            if not recommended_dim:
+                raise ValueError("Aucune dimension recommandée dans le rapport")
+            svd_path = self.dir / f"items_reduced_svd_{recommended_dim}d.npy"
+            if not svd_path.exists():
+                raise FileNotFoundError(f"Matrice SVD {recommended_dim}D introuvable: {svd_path}")
+            if self.verbose:
+                print(f"[SVD Auto] Dimension recommandée: {recommended_dim}D")
+            return np.load(svd_path)
         elif mode == "tfidf+numeric":
             if self._numeric is None:
                 return self._tfidf
