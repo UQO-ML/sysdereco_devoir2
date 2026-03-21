@@ -68,63 +68,63 @@ def stuff():
         gc.collect()
 
 
-    # for original_sample_path in SAMPLE_GLOB_ORIGINAL_LIST:
-    #     if os.path.exists(original_sample_path):
-    #         original_sample_data = pd.read_parquet(original_sample_path)
-    #         print(f"\n{original_sample_path}, \ndisk: {_disk_size(original_sample_path)}, \nmemory (loaded): {_df_memory_mb(original_sample_data):.1f} MiB, \n{original_sample_data.shape},\n{original_sample_data.columns.tolist()}\n, \n{original_sample_data.schema_arrow}\n, \n{original_sample_data}\n")
-    #         del original_sample_data
-    #         gc.collect()
-    #         pf = pq.ParquetFile(original_sample_path)
-    #         print(pf.schema_arrow)
-    #         print(pf.metadata.num_rows)
-    #         del pf
-    #         gc.collect()
+    for original_sample_path in SAMPLE_GLOB_ORIGINAL_LIST:
+        if os.path.exists(original_sample_path):
+            original_sample_data = pd.read_parquet(original_sample_path)
+            print(f"\n{original_sample_path}, \ndisk: {_disk_size(original_sample_path)}, \nmemory (loaded): {_df_memory_mb(original_sample_data):.1f} MiB, \n{original_sample_data.shape},\n{original_sample_data.columns.tolist()}\n")
+            del original_sample_data
+            gc.collect()
+            pf = pq.ParquetFile(original_sample_path)
+            print(pf.schema_arrow)
+            print(pf.metadata.num_rows)
+            del pf
+            gc.collect()
             
-    # for filtered_sample_path in SAMPLE_GLOB_FILTERED_LIST:
-    #     if os.path.exists(filtered_sample_path):
-    #         filtered_sample_data = pd.read_parquet(filtered_sample_path)
-    #         print(f"\n{filtered_sample_path}, \ndisk: {_disk_size(filtered_sample_path)}, \nmemory (loaded): {_df_memory_mb(filtered_sample_data):.1f} MiB, \n{filtered_sample_data.shape},\n{filtered_sample_data.columns.tolist()}\n, \n{filtered_sample_data.schema_arrow}\n, \n{filtered_sample_data}\n")
-    #         del filtered_sample_data
-    #         gc.collect()
-    #         pf = pq.ParquetFile(filtered_sample_path)
-    #         print(pf.schema_arrow)
-    #         print(pf.metadata.num_rows)
-    #         del pf
-    #         gc.collect()
+    for filtered_sample_path in SAMPLE_GLOB_FILTERED_LIST:
+        if os.path.exists(filtered_sample_path):
+            filtered_sample_data = pd.read_parquet(filtered_sample_path)
+            print(f"\n{filtered_sample_path}, \ndisk: {_disk_size(filtered_sample_path)}, \nmemory (loaded): {_df_memory_mb(filtered_sample_data):.1f} MiB, \n{filtered_sample_data.shape},\n{filtered_sample_data.columns.tolist()}\n")
+            del filtered_sample_data
+            gc.collect()
+            pf = pq.ParquetFile(filtered_sample_path)
+            print(pf.schema_arrow)
+            print(pf.metadata.num_rows)
+            del pf
+            gc.collect()
 
-    # for clean_joined_path in CLEANED_JOINED_DATA:
-    #     if os.path.exists(clean_joined_path):
-    #         clean_joined_data = pd.read_parquet(clean_joined_path)
-    #         print(f"\n{clean_joined_path}, \ndisk: {_disk_size(clean_joined_path)}, \nmemory (loaded): {_df_memory_mb(clean_joined_data):.1f} MiB, \n{clean_joined_data.shape},\n{clean_joined_data.columns.tolist()}\n, \n{clean_joined_data.schema_arrow}\n, \n\n")
-    #         del clean_joined_data
-    #         gc.collect()
-    #         pf = pq.ParquetFile(clean_joined_path)
-    #         print(pf.schema_arrow)
-    #         print(pf.metadata.num_rows)
-    #         del pf
-    #         gc.collect()
+    for clean_joined_path in CLEANED_JOINED_DATA:
+        if os.path.exists(clean_joined_path):
+            clean_joined_data = pd.read_parquet(clean_joined_path)
+            print(f"\n{clean_joined_path}, \ndisk: {_disk_size(clean_joined_path)}, \nmemory (loaded): {_df_memory_mb(clean_joined_data):.1f} MiB, \n{clean_joined_data.shape},\n{clean_joined_data.columns.tolist()}\n")
+            del clean_joined_data
+            gc.collect()
+            pf = pq.ParquetFile(clean_joined_path)
+            print(pf.schema_arrow)
+            print(pf.metadata.num_rows)
+            del pf
+            gc.collect()
 
-    # for train_joined_path in TRAIN_SPLITED_JOINED_DATA:
-    #     if os.path.exists(train_joined_path):
-    #         train_joined_data = pd.read_parquet(train_joined_path)
-    #         print(f"\n{train_joined_path}, \ndisk: {_disk_size(train_joined_path)}, \nmemory (loaded): {_df_memory_mb(train_joined_data):.1f} MiB, \n{train_joined_data.shape},\n{train_joined_data.columns.tolist()}\n, \n{train_joined_data.schema_arrow}\n, \n\n")
-    #         del train_joined_data
-    #         gc.collect()
-    #         pf = pq.ParquetFile(train_joined_path)
-    #         print(pf.schema_arrow)
-    #         print(pf.metadata.num_rows)
-    #         del pf
-    #         gc.collect()
+    for train_joined_path in TRAIN_SPLITED_JOINED_DATA:
+        if os.path.exists(train_joined_path):
+            train_joined_data = pd.read_parquet(train_joined_path)
+            print(f"\n{train_joined_path}, \ndisk: {_disk_size(train_joined_path)}, \nmemory (loaded): {_df_memory_mb(train_joined_data):.1f} MiB, \n{train_joined_data.shape},\n{train_joined_data.columns.tolist()}\n")
+            del train_joined_data
+            gc.collect()
+            pf = pq.ParquetFile(train_joined_path)
+            print(pf.schema_arrow)
+            print(pf.metadata.num_rows)
+            del pf
+            gc.collect()
 
-    # for test_joined_path in TEST_SPLITED_JOINED_DATA:
-    #     if os.path.exists(test_joined_path):
-    #         test_joined_data = pd.read_parquet(test_joined_path)
-    #         print(f"\n{test_joined_path}, \ndisk: {_disk_size(test_joined_path)}, \nmemory (loaded): {_df_memory_mb(test_joined_data):.1f} MiB, \n{test_joined_data.shape},\n{test_joined_data.columns.tolist()}\n, \n{test_joined_data.schema_arrow}\n, \n\n")
-    #         del test_joined_data
-    #         gc.collect()
-    #         pf = pq.ParquetFile(test_joined_path)
-    #         print(pf.schema_arrow)
-    #         print(pf.metadata.num_rows)
+    for test_joined_path in TEST_SPLITED_JOINED_DATA:
+        if os.path.exists(test_joined_path):
+            test_joined_data = pd.read_parquet(test_joined_path)
+            print(f"\n{test_joined_path}, \ndisk: {_disk_size(test_joined_path)}, \nmemory (loaded): {_df_memory_mb(test_joined_data):.1f} MiB, \n{test_joined_data.shape},\n{test_joined_data.columns.tolist()}\n")
+            del test_joined_data
+            gc.collect()
+            pf = pq.ParquetFile(test_joined_path)
+            print(pf.schema_arrow)
+            print(pf.metadata.num_rows)
 
 
 if __name__ == "__main__":

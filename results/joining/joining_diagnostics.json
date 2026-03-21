@@ -285,15 +285,15 @@
     },
     "active_pre_split": {
       "n_rows": 508878,
-      "exact_duplicates": 10756,
-      "exact_duplicates_pct": 2.1137,
+      "exact_duplicates": 10725,
+      "exact_duplicates_pct": 2.1076,
       "user_item_duplicates": 10947,
       "user_item_duplicates_pct": 2.1512
     },
     "temporal_pre_split": {
       "n_rows": 289949,
-      "exact_duplicates": 4428,
-      "exact_duplicates_pct": 1.5272,
+      "exact_duplicates": 4418,
+      "exact_duplicates_pct": 1.5237,
       "user_item_duplicates": 4428,
       "user_item_duplicates_pct": 1.5272
     }
@@ -407,7 +407,9 @@
         "parent_asin",
         "rating",
         "timestamp",
-        "text"
+        "text",
+        "helpful_vote",
+        "verified_purchase"
       ],
       "metadata_text_kept": [
         "title",
@@ -439,9 +441,7 @@
       "ignored_interactions_cols": [
         "title",
         "images",
-        "asin",
-        "helpful_vote",
-        "verified_purchase"
+        "asin"
       ],
       "ignored_metadata_cols": [
         "main_category",
@@ -456,6 +456,8 @@
         "rating": "Note attribuée par l'utilisateur, variable cible du système de recommandation.",
         "timestamp": "Horodatage de l'interaction, nécessaire pour le split temporel.",
         "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
+        "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
+        "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
         "title": "Titre du livre, exploitable pour la représentation textuelle (TF-IDF, embeddings).",
         "subtitle": "Sous-titre du livre, complément textuel du titre.",
         "features": "Points clés marketing, contenu textuel complémentaire.",
@@ -470,8 +472,6 @@
       "exclusion_reasons": {
         "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
         "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
-        "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
-        "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
         "main_category": "Exclu : valeur quasi-constante ('Books' pour >99% des lignes).",
         "videos": "Exclu : quasi-vide, non pertinent pour la recommandation textuelle.",
         "store": "Exclu : redondant avec author (contient 'Author Name (Author)').",
@@ -484,7 +484,9 @@
         "parent_asin",
         "rating",
         "timestamp",
-        "text"
+        "text",
+        "helpful_vote",
+        "verified_purchase"
       ],
       "metadata_text_kept": [
         "title",
@@ -515,9 +517,7 @@
       ],
       "ignored_interactions_cols": [
         "title",
-        "asin",
-        "helpful_vote",
-        "verified_purchase"
+        "asin"
       ],
       "ignored_metadata_cols": [
         "main_category",
@@ -532,6 +532,8 @@
         "rating": "Note attribuée par l'utilisateur, variable cible du système de recommandation.",
         "timestamp": "Horodatage de l'interaction, nécessaire pour le split temporel.",
         "text": "Exclu des colonnes retenues P2 : texte libre de review, très volumineux, non nécessaire pour la jointure metadata.",
+        "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
+        "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
         "title": "Titre du livre, exploitable pour la représentation textuelle (TF-IDF, embeddings).",
         "subtitle": "Sous-titre du livre, complément textuel du titre.",
         "features": "Points clés marketing, contenu textuel complémentaire.",
@@ -545,8 +547,6 @@
       },
       "exclusion_reasons": {
         "asin": "Exclu : redondant avec parent_asin pour les éditions groupées.",
-        "helpful_vote": "Exclu : signal faible, non nécessaire pour la jointure P2.",
-        "verified_purchase": "Exclu : booléen de confiance, hors périmètre P2.",
         "main_category": "Exclu : valeur quasi-constante ('Books' pour >99% des lignes).",
         "images": "Exclu : données binaires/URL non exploitables pour le filtrage collaboratif.",
         "videos": "Exclu : quasi-vide, non pertinent pour la recommandation textuelle.",
@@ -609,6 +609,28 @@
           "empty_count": 3,
           "empty_pct": 0.0006,
           "effective_missing_pct": 0.0006,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
+          "column": "helpful_vote",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
+          "column": "verified_purchase",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
           "strategy": "au cas par cas / hors périmètre",
           "column_type": "clé (identifiant)",
           "justification": "—"
@@ -794,6 +816,28 @@
           "justification": "—"
         },
         {
+          "column": "helpful_vote",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
+          "column": "verified_purchase",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
           "column": "title",
           "missing_count": 0,
           "missing_pct": 0.0,
@@ -913,6 +957,50 @@
           "strategy": "au cas par cas / hors périmètre",
           "column_type": "catégorielle (extraite de struct)",
           "justification": "Extrait de struct details ; vide tolérable, quasi-constant ('English')."
+        },
+        {
+          "column": "nb_pages",
+          "missing_count": 19115,
+          "missing_pct": 3.8389,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 3.8389,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
+        },
+        {
+          "column": "pub_year",
+          "missing_count": 17573,
+          "missing_pct": 3.5292,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 3.5292,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
+        },
+        {
+          "column": "book_format",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
+        },
+        {
+          "column": "reading_age_min",
+          "missing_count": 434890,
+          "missing_pct": 87.3394,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 87.3394,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
         }
       ]
     },
@@ -969,6 +1057,28 @@
           "empty_count": 5,
           "empty_pct": 0.0017,
           "effective_missing_pct": 0.0017,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
+          "column": "helpful_vote",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
+          "column": "verified_purchase",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
           "strategy": "au cas par cas / hors périmètre",
           "column_type": "clé (identifiant)",
           "justification": "—"
@@ -1154,6 +1264,28 @@
           "justification": "—"
         },
         {
+          "column": "helpful_vote",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
+          "column": "verified_purchase",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "clé (identifiant)",
+          "justification": "—"
+        },
+        {
           "column": "title",
           "missing_count": 0,
           "missing_pct": 0.0,
@@ -1273,6 +1405,50 @@
           "strategy": "au cas par cas / hors périmètre",
           "column_type": "catégorielle (extraite de struct)",
           "justification": "Extrait de struct details ; vide tolérable, quasi-constant ('English')."
+        },
+        {
+          "column": "nb_pages",
+          "missing_count": 15188,
+          "missing_pct": 5.3194,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 5.3194,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
+        },
+        {
+          "column": "pub_year",
+          "missing_count": 13382,
+          "missing_pct": 4.6869,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 4.6869,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
+        },
+        {
+          "column": "book_format",
+          "missing_count": 0,
+          "missing_pct": 0.0,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 0.0,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
+        },
+        {
+          "column": "reading_age_min",
+          "missing_count": 261339,
+          "missing_pct": 91.5306,
+          "empty_count": 0,
+          "empty_pct": 0.0,
+          "effective_missing_pct": 91.5306,
+          "strategy": "au cas par cas / hors périmètre",
+          "column_type": "autre",
+          "justification": "—"
         }
       ]
     }
@@ -1601,12 +1777,12 @@
     "active_pre_split": {
       "path": "data/joining/active_pre_split_clean_joined.parquet",
       "n_rows": 497931,
-      "n_cols": 16
+      "n_cols": 22
     },
     "temporal_pre_split": {
       "path": "data/joining/temporal_pre_split_clean_joined.parquet",
       "n_rows": 285521,
-      "n_cols": 16
+      "n_cols": 22
     }
   },
   "column_purpose": {

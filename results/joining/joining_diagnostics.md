@@ -1,6 +1,6 @@
 # Diagnostic Task 0 — Préparation des données (P2)
 
-- generated_at: 2026-03-17T13:18:30
+- generated_at: 2026-03-21T11:55:00
 
 ## A. Réutilisation du sous-ensemble de travail
 - note: `P2 réutilise les sous-ensembles P1 (active/temporal, filtered + splits).`
@@ -96,12 +96,12 @@
 
 ### active_pre_split
 - n_rows: `508878`
-- doublons exacts: `10756` (2.1137%)
+- doublons exacts: `10725` (2.1076%)
 - doublons (user_id, parent_asin): `10947` (2.1512%)
 
 ### temporal_pre_split
 - n_rows: `289949`
-- doublons exacts: `4428` (1.5272%)
+- doublons exacts: `4418` (1.5237%)
 - doublons (user_id, parent_asin): `4428` (1.5272%)
 
 ## C3. Validation des valeurs (rating, timestamp)
@@ -149,17 +149,17 @@
 ## E. Attributs exploitables
 
 ### active_pre_split
-- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp', 'text']`
+- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp', 'text', 'helpful_vote', 'verified_purchase']`
 - metadata_text_kept: `['title', 'subtitle', 'features', 'description', 'categories', 'author', 'details']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'images', 'asin', 'helpful_vote', 'verified_purchase']`
+- ignored_interactions_cols: `['title', 'images', 'asin']`
 - ignored_metadata_cols: `['main_category', 'images', 'videos', 'store', 'bought_together']`
 
 ### temporal_pre_split
-- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp', 'text']`
+- interactions_kept: `['user_id', 'parent_asin', 'rating', 'timestamp', 'text', 'helpful_vote', 'verified_purchase']`
 - metadata_text_kept: `['title', 'subtitle', 'features', 'description', 'categories', 'author', 'details']`
 - metadata_struct_kept: `['average_rating', 'rating_number', 'price']`
-- ignored_interactions_cols: `['title', 'asin', 'helpful_vote', 'verified_purchase']`
+- ignored_interactions_cols: `['title', 'asin']`
 - ignored_metadata_cols: `['main_category', 'images', 'videos', 'store', 'bought_together']`
 
 ## F. Valeurs manquantes et stratégie
@@ -175,6 +175,8 @@
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
 | text | clé (identifiant) | 0.0% | 0.0006% | 0.0006% | au cas par cas / hors périmètre | — |
+| helpful_vote | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
+| verified_purchase | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
 
 #### Métadonnées globales
 
@@ -201,6 +203,8 @@
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
 | text | clé (identifiant) | 0.0% | 0.0004% | 0.0004% | au cas par cas / hors périmètre | — |
+| helpful_vote | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
+| verified_purchase | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
 | title | textuelle (scalaire) | 0.0% | 0.0% | 0.0% | remplacer NaN par chaîne vide | Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description. |
 | subtitle | textuelle (scalaire) | 0.0% | 8.552% | 8.552% | remplacer NaN par chaîne vide | Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation. |
 | features | textuelle (liste) | 0.0% | 0.4314% | 0.4314% | joindre éléments en string, vide si absent | Points clés marketing ; vide tolérable, données complémentaires au content-based. |
@@ -212,6 +216,10 @@
 | author_name | catégorielle (extraite de struct) | 0.0% | 4.2657% | 4.2657% | au cas par cas / hors périmètre | Extrait de struct author ; vide si auteur inconnu, impact limité. |
 | details_publisher | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, attribut catégoriel secondaire. |
 | details_language | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, quasi-constant ('English'). |
+| nb_pages | autre | 3.8389% | 0.0% | 3.8389% | au cas par cas / hors périmètre | — |
+| pub_year | autre | 3.5292% | 0.0% | 3.5292% | au cas par cas / hors périmètre | — |
+| book_format | autre | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
+| reading_age_min | autre | 87.3394% | 0.0% | 87.3394% | au cas par cas / hors périmètre | — |
 
 ### temporal_pre_split
 
@@ -224,6 +232,8 @@
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
 | text | clé (identifiant) | 0.0% | 0.0017% | 0.0017% | au cas par cas / hors périmètre | — |
+| helpful_vote | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
+| verified_purchase | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
 
 #### Métadonnées globales
 
@@ -250,6 +260,8 @@
 | rating | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (variable cible) | Variable cible du système de recommandation — ligne sans note exclue. |
 | timestamp | numérique | 0.0% | 0.0% | 0.0% | supprimer lignes incomplètes (clé obligatoire) | Nécessaire au split temporel train/test — ligne inutilisable sans date. |
 | text | clé (identifiant) | 0.0% | 0.0018% | 0.0018% | au cas par cas / hors périmètre | — |
+| helpful_vote | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
+| verified_purchase | clé (identifiant) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
 | title | textuelle (scalaire) | 0.0% | 0.0% | 0.0% | remplacer NaN par chaîne vide | Contenu textuel principal pour TF-IDF/embeddings ; chaîne vide tolérable car concaténé avec description. |
 | subtitle | textuelle (scalaire) | 0.0% | 10.3863% | 10.3863% | remplacer NaN par chaîne vide | Complément textuel mineur ; chaîne vide acceptable, faible impact sur la représentation. |
 | features | textuelle (liste) | 0.0% | 1.4192% | 1.4192% | joindre éléments en string, vide si absent | Points clés marketing ; vide tolérable, données complémentaires au content-based. |
@@ -261,6 +273,10 @@
 | author_name | catégorielle (extraite de struct) | 0.0% | 5.8864% | 5.8864% | au cas par cas / hors périmètre | Extrait de struct author ; vide si auteur inconnu, impact limité. |
 | details_publisher | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, attribut catégoriel secondaire. |
 | details_language | catégorielle (extraite de struct) | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | Extrait de struct details ; vide tolérable, quasi-constant ('English'). |
+| nb_pages | autre | 5.3194% | 0.0% | 5.3194% | au cas par cas / hors périmètre | — |
+| pub_year | autre | 4.6869% | 0.0% | 4.6869% | au cas par cas / hors périmètre | — |
+| book_format | autre | 0.0% | 0.0% | 0.0% | au cas par cas / hors périmètre | — |
+| reading_age_min | autre | 91.5306% | 0.0% | 91.5306% | au cas par cas / hors périmètre | — |
 
 
 ## F2. Qualité des champs textuels
@@ -332,12 +348,12 @@
 ### active_pre_split
 - path: `data/joining/active_pre_split_clean_joined.parquet`
 - rows: `497931`
-- cols: `16`
+- cols: `22`
 
 ### temporal_pre_split
 - path: `data/joining/temporal_pre_split_clean_joined.parquet`
 - rows: `285521`
-- cols: `16`
+- cols: `22`
 
 ## H. Usage des colonnes par tâche
 
