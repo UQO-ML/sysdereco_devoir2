@@ -219,3 +219,5 @@ data/tfidf/*.npz
 *.npy
 amazon-reviews*
 *.tar.gz
+data/**/*.json
+data/**/*.md
