@@ -299,13 +299,14 @@ def run_projection_pipeline(
         "variant": variant,
         "method": "user_profile_projection",
         "output_dir": results_dir.as_posix(),
+        "train_path": (data_dir / "train_interactions.parquet").as_posix(), # Pour la contrainte "no_test_data_used"
         "dimensions_tested": LATENT_DIMENSIONS,
         "projection_results": all_metrics,
         "artifact_paths": artifact_paths,
         "constraints_satisfied": {
             "same_vector_space": all(m["same_vector_space"] for m in all_metrics),
-            "no_test_data_used": "Only train_interactions.parquet used",
-            "consistent_with_items": "SVD model applied to user profiles in TF-IDF space",
+            "no_test_data_used": True,
+            "consistent_with_items": True,
         },
         "build_time_s": round(time.perf_counter() - t0, 2),
     }

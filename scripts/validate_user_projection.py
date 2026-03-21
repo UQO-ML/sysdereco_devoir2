@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import numpy as np
 
@@ -39,7 +39,7 @@ def validate_projection(variant: str, data_dir: Path, results_dir: Path) -> Dict
         return checks
 
     checks["report_exists"] = True
-    print("Rapport de projection trouvé")
+    print("Rapport de projection trouvé : OK.")
 
     with open(report_path, encoding="utf-8") as f:
         report = json.load(f)
@@ -50,7 +50,7 @@ def validate_projection(variant: str, data_dir: Path, results_dir: Path) -> Dict
     # Interpréter explicitement les contraintes comme des booléens
     same_space = bool(constraints.get("same_vector_space", False))
     checks["same_vector_space"] = same_space
-    print(f"{'Oui' if same_space else 'Non'} Même espace vectoriel: {same_space}")
+    print(f"Même espace vectoriel: {'OK' if same_space else 'ERREUR'}")
 
     # Validation plus stricte: pas de données de test utilisées
     no_test_raw = constraints.get("no_test_data_used")
