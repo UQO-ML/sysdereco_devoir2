@@ -1,7 +1,7 @@
 {
   "variant": "temporal_pre_split",
   "method": "svd",
-  "output_dir": "results\\svd",
+  "output_dir": "results/svd",
   "dimensions_tested": [
     50,
     100,
@@ -234,28 +234,28 @@
   },
   "artifact_paths": {
     "50d": {
-      "reduced_matrix": "results\\svd\\items_reduced_svd_50d.npy",
-      "model": "results\\svd\\reducer_svd_50d.pkl",
-      "item_ids": "results\\svd\\item_ids.npy",
-      "metrics": "results\\svd\\metrics_svd_50d.json"
+      "reduced_matrix": "results/svd/items_reduced_svd_50d.npy",
+      "model": "results/svd/reducer_svd_50d.pkl",
+      "item_ids": "results/svd/item_ids.npy",
+      "metrics": "results/svd/metrics_svd_50d.json"
     },
     "100d": {
-      "reduced_matrix": "results\\svd\\items_reduced_svd_100d.npy",
-      "model": "results\\svd\\reducer_svd_100d.pkl",
-      "item_ids": "results\\svd\\item_ids.npy",
-      "metrics": "results\\svd\\metrics_svd_100d.json"
+      "reduced_matrix": "results/svd/items_reduced_svd_100d.npy",
+      "model": "results/svd/reducer_svd_100d.pkl",
+      "item_ids": "results/svd/item_ids.npy",
+      "metrics": "results/svd/metrics_svd_100d.json"
     },
     "200d": {
-      "reduced_matrix": "results\\svd\\items_reduced_svd_200d.npy",
-      "model": "results\\svd\\reducer_svd_200d.pkl",
-      "item_ids": "results\\svd\\item_ids.npy",
-      "metrics": "results\\svd\\metrics_svd_200d.json"
+      "reduced_matrix": "results/svd/items_reduced_svd_200d.npy",
+      "model": "results/svd/reducer_svd_200d.pkl",
+      "item_ids": "results/svd/item_ids.npy",
+      "metrics": "results/svd/metrics_svd_200d.json"
     },
     "300d": {
-      "reduced_matrix": "results\\svd\\items_reduced_svd_300d.npy",
-      "model": "results\\svd\\reducer_svd_300d.pkl",
-      "item_ids": "results\\svd\\item_ids.npy",
-      "metrics": "results\\svd\\metrics_svd_300d.json"
+      "reduced_matrix": "results/svd/items_reduced_svd_300d.npy",
+      "model": "results/svd/reducer_svd_300d.pkl",
+      "item_ids": "results/svd/item_ids.npy",
+      "metrics": "results/svd/metrics_svd_300d.json"
     }
   },
   "build_time_s": 63.74
