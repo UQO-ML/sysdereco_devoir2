@@ -165,9 +165,9 @@ python scripts/example_latent_recommendation.py
 ## Integration with Existing Code
 
 ### With `dimension_reduction.py` (Task 2.0.1)
-- Reads SVD models from `results/svd/<variant>/reducer_svd_{dim}d.pkl`
-- Reads item vectors from `results/svd/<variant>/items_reduced_svd_{dim}d.npy`
-- Uses same output directory structure
+- Reads SVD models from `data/joining/<variant>/reducer_svd_{dim}d.pkl`
+- Reads item vectors from `data/joining/<variant>/items_reduced_svd_{dim}d.npy`
+- Uses the same `data/joining/<variant>/` directory and filename patterns as `dimension_reduction.py`
 
 ### With `user_profile.py` (Task 0)
 - Reuses same algorithm for building TF-IDF profiles
