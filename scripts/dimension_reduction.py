@@ -141,7 +141,10 @@ def analyze_tradeoffs(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     # 1) variance expliquée > 30%
     # 2) gain marginal vers la dimension suivante < 2%
     # On recommande la première dimension qui satisfait ces deux conditions.
-    recommendation = ordered_results[-1]
+    best_by_variance = max(
+        ordered_results, key=lambda r: r["variance_explained_pct"]
+    )
+    recommendation = best_by_variance
     recommendation_reason = (
         "Aucune dimension ne satisfait les seuils; fallback sur la variance maximale."
     )
