@@ -19,7 +19,11 @@ from typing import Dict, List
 import numpy as np
 
 
-def validate_projection(variant: str, results_dir: Path) -> Dict[str, bool]:
+DATA_DIR = Path("data/joining")
+RESULTS_DIR = Path("results/svd")
+
+
+def validate_projection(variant: str, data_dir: Path, results_dir: Path) -> Dict[str, bool]:
     """Valide la projection des profils utilisateurs pour un variant."""
     checks = {}
 
@@ -88,7 +92,7 @@ def validate_projection(variant: str, results_dir: Path) -> Dict[str, bool]:
         print(f"\n  --- Dimension {dim}D ---")
 
         # Profils utilisateurs
-        user_profiles_path = results_dir / f"user_profiles_latent_{dim}d.npy"
+        user_profiles_path = data_dir / f"user_profiles_latent_{dim}d.npy"
         if not user_profiles_path.exists():
             print(f"Profils utilisateurs introuvables: {user_profiles_path.name}")
             checks[f"user_profiles_{dim}d"] = False
@@ -99,7 +103,7 @@ def validate_projection(variant: str, results_dir: Path) -> Dict[str, bool]:
         checks[f"user_profiles_{dim}d"] = True
 
         # Vecteurs items
-        item_vectors_path = results_dir / f"items_reduced_svd_{dim}d.npy"
+        item_vectors_path = data_dir / f"items_reduced_svd_{dim}d.npy"
         if not item_vectors_path.exists():
             print(f"Vecteurs items introuvables: {item_vectors_path.name}")
             checks[f"item_vectors_{dim}d"] = False
@@ -139,7 +143,7 @@ def validate_projection(variant: str, results_dir: Path) -> Dict[str, bool]:
             checks[f"no_inf_users_{dim}d"] = True
 
     # 4. Vérifier les user_ids
-    user_ids_path = results_dir / "user_ids_latent.npy"
+    user_ids_path = data_dir / "user_ids_latent.npy"
     if not user_ids_path.exists():
         print(f"\nuser_ids introuvables: {user_ids_path.name}")
         checks["user_ids_exist"] = False
@@ -150,7 +154,7 @@ def validate_projection(variant: str, results_dir: Path) -> Dict[str, bool]:
 
         # Vérifier que le nombre d'utilisateurs correspond
         for dim in dimensions:
-            user_profiles_path = results_dir / f"user_profiles_latent_{dim}d.npy"
+            user_profiles_path = data_dir / f"user_profiles_latent_{dim}d.npy"
             if user_profiles_path.exists():
                 user_profiles = np.load(user_profiles_path)
                 if len(user_ids) != user_profiles.shape[0]:
@@ -172,19 +176,18 @@ def validate_projection(variant: str, results_dir: Path) -> Dict[str, bool]:
 
 def main() -> None:
     """Valide tous les variants disponibles."""
-    results_dir = Path("results/svd")
-
     all_checks = {}
 
-    for variant_dir in sorted(results_dir.glob("*")):
-        if not variant_dir.is_dir():
+    for variant_results_dir in sorted(RESULTS_DIR.glob("*")):
+        if not variant_results_dir.is_dir():
             continue
 
-        if variant_dir.name in [".", ".."]:
+        if variant_results_dir.name in [".", ".."]:
             continue
 
-        variant = variant_dir.name
-        checks = validate_projection(variant, variant_dir)
+        variant = variant_results_dir.name
+        variant_data_dir = DATA_DIR / variant
+        checks = validate_projection(variant, variant_data_dir, variant_results_dir)
         all_checks[variant] = checks
 
     # Résumé global

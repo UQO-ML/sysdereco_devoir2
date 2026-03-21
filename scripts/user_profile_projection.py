@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csr_matrix, load_npz, issparse
+from scipy.sparse import csr_matrix, load_npz
 
 # Configuration
 LATENT_DIMENSIONS = [50, 100, 200, 300]
@@ -171,13 +171,9 @@ class LatentUserProfileProjector:
         weight_sums = np.array(R.sum(axis=1)).ravel()
         weight_sums[weight_sums == 0] = 1.0
 
-        profiles_tfidf.data = profiles_tfidf.data.astype(np.float32, copy=False)
         inv = (1.0 / weight_sums).astype(np.float32)
-        row_ids = np.repeat(
-            np.arange(profiles_tfidf.shape[0], dtype=np.int32),
-            np.diff(profiles_tfidf.indptr)
-        )
-        profiles_tfidf.data *= inv[row_ids]
+        profiles_tfidf = profiles_tfidf.multiply(inv[:, None]).tocsr()
+        profiles_tfidf.data = profiles_tfidf.data.astype(np.float32, copy=False)
 
         if self.verbose:
             density = profiles_tfidf.nnz / (
@@ -394,7 +390,7 @@ def main() -> None:
 
         # Vérifier que les artéfacts SVD existent
         svd_results_dir = RESULTS_DIR / variant_name
-        if not (svd_results_dir / "dimension_comparison.json").exists():
+        if not (svd_results_dir / ARTIFACTS_IN["dimension_comparison"]).exists():
             print(f"[SKIP] {variant_name}: artéfacts SVD manquants")
             continue
 
