@@ -200,6 +200,31 @@ Le fichier `results/joining/joining_diagnostics.json` contient les mêmes donné
 
 ---
 
+## Scripts de projection latente (Tâche 2)
+
+Après la phase de jointure, les scripts suivants permettent de projeter les profils utilisateurs dans l'espace latent SVD :
+
+| Script | Description |
+|--------|-------------|
+| `scripts/dimension_reduction.py` | Applique TruncatedSVD sur les représentations TF-IDF des items (dimensions: 50, 100, 200, 300). Sauvegarde les modèles SVD et matrices réduites dans `data/joining/<variant>/`, et les métriques/rapports dans `results/svd/<variant>/`. |
+| `scripts/user_profile_projection.py` | Projette les profils utilisateurs TF-IDF dans l'espace latent en utilisant les modèles SVD pré-entraînés. Produit `user_profiles_latent_{dim}d.npy` et rapports JSON. |
+| `scripts/validate_user_projection.py` | Valide que les profils et items sont dans le même espace vectoriel et vérifie l'absence de données de test. |
+| `scripts/example_latent_recommendation.py` | Exemple d'utilisation : charge les matrices latentes et génère des recommandations par similarité cosinus. |
+
+**Utilisation:**
+```bash
+# 1. Réduction de dimension des items
+python scripts/dimension_reduction.py
+
+# 2. Projection des profils utilisateurs
+python scripts/user_profile_projection.py
+
+# 3. Validation des sorties
+python scripts/validate_user_projection.py
+```
+
+---
+
 ## Livrables (rappel)
 
 - **Rapport PDF** : `INF6083-P2-EquipeN-Rapport.pdf` (max 30 pages).
