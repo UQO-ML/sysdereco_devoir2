@@ -1,0 +1,42 @@
+{
+  "variant": "active_pre_split",
+  "method": "svd",
+  "n_components": 50,
+  "input_shape": [
+    45073,
+    92958
+  ],
+  "output_shape": [
+    45073,
+    50
+  ],
+  "fit_time_s": 25.0165,
+  "transform_time_s": 0.044,
+  "transform_time_per_sample_ms": 0.044,
+  "variance_explained": 0.102674,
+  "variance_explained_pct": 10.27,
+  "variance_per_component": [
+    0.004591,
+    0.017947,
+    0.011286,
+    0.006585,
+    0.003982,
+    0.003213,
+    0.002799,
+    0.002683,
+    0.002447,
+    0.002392
+  ],
+  "singular_values": [
+    182.2934,
+    28.1092,
+    22.2903,
+    17.0261,
+    13.244,
+    11.8933,
+    11.1018,
+    10.8686,
+    10.3789,
+    10.2629
+  ]
+}

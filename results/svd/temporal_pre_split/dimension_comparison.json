@@ -1,0 +1,266 @@
+{
+  "variant": "temporal_pre_split",
+  "method": "svd",
+  "output_dir": "results\\svd\\temporal_pre_split",
+  "dimensions_tested": [
+    50,
+    100,
+    200,
+    300
+  ],
+  "comparison_results": [
+    {
+      "variant": "temporal_pre_split",
+      "method": "svd",
+      "n_components": 50,
+      "input_shape": [
+        22007,
+        43045
+      ],
+      "output_shape": [
+        22007,
+        50
+      ],
+      "fit_time_s": 5.2905,
+      "transform_time_s": 0.0135,
+      "transform_time_per_sample_ms": 0.0135,
+      "variance_explained": 0.162269,
+      "variance_explained_pct": 16.23,
+      "variance_per_component": [
+        0.014818,
+        0.026884,
+        0.018,
+        0.009753,
+        0.006931,
+        0.006084,
+        0.004865,
+        0.00449,
+        0.003857,
+        0.003415
+      ],
+      "singular_values": [
+        110.2742,
+        24.1691,
+        19.7768,
+        14.5714,
+        12.2954,
+        11.4986,
+        10.2818,
+        9.8778,
+        9.1569,
+        8.6166
+      ]
+    },
+    {
+      "variant": "temporal_pre_split",
+      "method": "svd",
+      "n_components": 100,
+      "input_shape": [
+        22007,
+        43045
+      ],
+      "output_shape": [
+        22007,
+        100
+      ],
+      "fit_time_s": 9.8139,
+      "transform_time_s": 0.0329,
+      "transform_time_per_sample_ms": 0.0329,
+      "variance_explained": 0.204146,
+      "variance_explained_pct": 20.41,
+      "variance_per_component": [
+        0.014818,
+        0.026884,
+        0.018,
+        0.009753,
+        0.006931,
+        0.006084,
+        0.004865,
+        0.00449,
+        0.003857,
+        0.003415
+      ],
+      "singular_values": [
+        110.2742,
+        24.1691,
+        19.7768,
+        14.5714,
+        12.2954,
+        11.4986,
+        10.2818,
+        9.8778,
+        9.1569,
+        8.6166
+      ]
+    },
+    {
+      "variant": "temporal_pre_split",
+      "method": "svd",
+      "n_components": 200,
+      "input_shape": [
+        22007,
+        43045
+      ],
+      "output_shape": [
+        22007,
+        200
+      ],
+      "fit_time_s": 17.7776,
+      "transform_time_s": 0.0635,
+      "transform_time_per_sample_ms": 0.0635,
+      "variance_explained": 0.260487,
+      "variance_explained_pct": 26.05,
+      "variance_per_component": [
+        0.014818,
+        0.026884,
+        0.018,
+        0.009753,
+        0.006931,
+        0.006084,
+        0.004865,
+        0.00449,
+        0.003857,
+        0.003415
+      ],
+      "singular_values": [
+        110.2742,
+        24.1691,
+        19.7768,
+        14.5714,
+        12.2954,
+        11.4986,
+        10.2818,
+        9.8778,
+        9.1569,
+        8.6166
+      ]
+    },
+    {
+      "variant": "temporal_pre_split",
+      "method": "svd",
+      "n_components": 300,
+      "input_shape": [
+        22007,
+        43045
+      ],
+      "output_shape": [
+        22007,
+        300
+      ],
+      "fit_time_s": 25.2555,
+      "transform_time_s": 0.0863,
+      "transform_time_per_sample_ms": 0.0863,
+      "variance_explained": 0.302758,
+      "variance_explained_pct": 30.28,
+      "variance_per_component": [
+        0.014818,
+        0.026884,
+        0.018,
+        0.009753,
+        0.006931,
+        0.006084,
+        0.004865,
+        0.00449,
+        0.003857,
+        0.003415
+      ],
+      "singular_values": [
+        110.2742,
+        24.1691,
+        19.7768,
+        14.5714,
+        12.2954,
+        11.4986,
+        10.2818,
+        9.8778,
+        9.1569,
+        8.6166
+      ]
+    }
+  ],
+  "analysis": {
+    "summary": [
+      {
+        "dimension": 50,
+        "variance_pct": 16.23,
+        "fit_time_s": 5.2905,
+        "transform_ms": 0.0135
+      },
+      {
+        "dimension": 100,
+        "variance_pct": 20.41,
+        "fit_time_s": 9.8139,
+        "transform_ms": 0.0329
+      },
+      {
+        "dimension": 200,
+        "variance_pct": 26.05,
+        "fit_time_s": 17.7776,
+        "transform_ms": 0.0635
+      },
+      {
+        "dimension": 300,
+        "variance_pct": 30.28,
+        "fit_time_s": 25.2555,
+        "transform_ms": 0.0863
+      }
+    ],
+    "marginal_gains": [
+      {
+        "from_dim": 50,
+        "to_dim": 100,
+        "variance_gain_pct": 4.18
+      },
+      {
+        "from_dim": 100,
+        "to_dim": 200,
+        "variance_gain_pct": 5.64
+      },
+      {
+        "from_dim": 200,
+        "to_dim": 300,
+        "variance_gain_pct": 4.23
+      }
+    ],
+    "recommendation": {
+      "dimension": 300,
+      "variance_pct": 30.28,
+      "fit_time_s": 25.2555,
+      "rationale": [
+        "Aucune dimension ne satisfait les seuils; fallback sur la variance maximale.",
+        "Compromis entre capacité de représentation et coût de calcul."
+      ],
+      "criteria": {
+        "min_variance_pct": 30.0,
+        "max_marginal_gain_pct": 2.0
+      }
+    }
+  },
+  "artifact_paths": {
+    "50d": {
+      "reduced_matrix": "data\\joining\\temporal_pre_split\\items_reduced_svd_50d.npy",
+      "model": "data\\joining\\temporal_pre_split\\reducer_svd_50d.pkl",
+      "item_ids": "data\\joining\\temporal_pre_split\\item_ids.npy",
+      "metrics": "results\\svd\\temporal_pre_split\\metrics_svd_50d.json"
+    },
+    "100d": {
+      "reduced_matrix": "data\\joining\\temporal_pre_split\\items_reduced_svd_100d.npy",
+      "model": "data\\joining\\temporal_pre_split\\reducer_svd_100d.pkl",
+      "item_ids": "data\\joining\\temporal_pre_split\\item_ids.npy",
+      "metrics": "results\\svd\\temporal_pre_split\\metrics_svd_100d.json"
+    },
+    "200d": {
+      "reduced_matrix": "data\\joining\\temporal_pre_split\\items_reduced_svd_200d.npy",
+      "model": "data\\joining\\temporal_pre_split\\reducer_svd_200d.pkl",
+      "item_ids": "data\\joining\\temporal_pre_split\\item_ids.npy",
+      "metrics": "results\\svd\\temporal_pre_split\\metrics_svd_200d.json"
+    },
+    "300d": {
+      "reduced_matrix": "data\\joining\\temporal_pre_split\\items_reduced_svd_300d.npy",
+      "model": "data\\joining\\temporal_pre_split\\reducer_svd_300d.pkl",
+      "item_ids": "data\\joining\\temporal_pre_split\\item_ids.npy",
+      "metrics": "results\\svd\\temporal_pre_split\\metrics_svd_300d.json"
+    }
+  },
+  "build_time_s": 59.82
+}

@@ -1,20 +1,20 @@
 {
   "variant": "temporal_pre_split",
   "method": "svd",
-  "n_components": 50,
+  "n_components": 100,
   "input_shape": [
     22007,
     43045
   ],
   "output_shape": [
     22007,
-    50
+    100
   ],
-  "fit_time_s": 2.76,
-  "transform_time_s": 0.0164,
-  "transform_time_per_sample_ms": 0.0164,
-  "variance_explained": 0.162269,
-  "variance_explained_pct": 16.23,
+  "fit_time_s": 9.8139,
+  "transform_time_s": 0.0329,
+  "transform_time_per_sample_ms": 0.0329,
+  "variance_explained": 0.204146,
+  "variance_explained_pct": 20.41,
   "variance_per_component": [
     0.014818,
     0.026884,

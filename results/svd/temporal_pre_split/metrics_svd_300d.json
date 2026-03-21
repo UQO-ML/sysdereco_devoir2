@@ -10,9 +10,9 @@
     22007,
     300
   ],
-  "fit_time_s": 24.2989,
-  "transform_time_s": 0.0668,
-  "transform_time_per_sample_ms": 0.0668,
+  "fit_time_s": 25.2555,
+  "transform_time_s": 0.0863,
+  "transform_time_per_sample_ms": 0.0863,
   "variance_explained": 0.302758,
   "variance_explained_pct": 30.28,
   "variance_per_component": [
