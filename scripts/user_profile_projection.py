@@ -235,14 +235,19 @@ class LatentUserProfileProjector:
 
         items_latent = np.load(items_latent_path)
 
+        n_users = len(user_ids)
+        transform_time_per_user_ms: Optional[float] = None
+        if n_users > 0:
+            transform_time_per_user_ms = round((transform_time / n_users) * 1000, 4)
+
         metrics = {
             "dimension": dimension,
-            "n_users": len(user_ids),
+            "n_users": n_users,
             "n_items": items_latent.shape[0],
             "profile_shape": list(latent_profiles.shape),
             "item_shape": list(items_latent.shape),
             "transform_time_s": round(transform_time, 4),
-            "transform_time_per_user_ms": round((transform_time / len(user_ids)) * 1000, 4),
+            "transform_time_per_user_ms": transform_time_per_user_ms,
             "same_vector_space": latent_profiles.shape[1] == items_latent.shape[1],
             "variance_explained": float(svd_model.explained_variance_ratio_.sum()),
             "variance_explained_pct": round(float(svd_model.explained_variance_ratio_.sum()) * 100, 2),
