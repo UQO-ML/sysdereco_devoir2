@@ -43,18 +43,43 @@ def validate_projection(variant: str, results_dir: Path) -> Dict[str, bool]:
     # 2. Vérifier que les contraintes expérimentales sont satisfaites
     constraints = report.get("constraints_satisfied", {})
 
-    same_space = constraints.get("same_vector_space", False)
+    # Interpréter explicitement les contraintes comme des booléens
+    same_space = bool(constraints.get("same_vector_space", False))
     checks["same_vector_space"] = same_space
     print(f"{'Oui' if same_space else 'Non'} Même espace vectoriel: {same_space}")
 
-    no_test = constraints.get("no_test_data_used", "")
-    checks["no_test_data"] = bool(no_test)
-    print(f"Pas de données de test: {no_test}")
+    # Validation plus stricte: pas de données de test utilisées
+    no_test_raw = constraints.get("no_test_data_used")
+    if isinstance(no_test_raw, bool):
+        no_test_flag = no_test_raw
+    else:
+        no_test_flag = str(no_test_raw).strip().lower() in {"true", "yes", "1", "ok", "passed"}
 
-    consistent = constraints.get("consistent_with_items", "")
-    checks["consistent_projection"] = bool(consistent)
-    print(f"Projection cohérente: {consistent}")
+    train_path = report.get("train_path") or ""
+    expected_train_filename = "train_interactions.parquet"
+    uses_expected_train = bool(train_path) and Path(train_path).name == expected_train_filename
 
+    # On considère que la contrainte "pas de données de test" est satisfaite
+    # seulement si le flag et le chemin du train sont cohérents.
+    checks["no_test_data"] = no_test_flag and uses_expected_train
+    print(
+        "Pas de données de test: "
+        f"{'Oui' if checks['no_test_data'] else 'Non'} "
+        f"(no_test_data_used={no_test_raw!r}, train_path={train_path!r})"
+    )
+
+    # Vérifier que la projection utilisateur est cohérente avec celle des items
+    consistent_raw = constraints.get("consistent_with_items")
+    if isinstance(consistent_raw, bool):
+        consistent_flag = consistent_raw
+    else:
+        consistent_flag = str(consistent_raw).strip().lower() in {"true", "yes", "1", "ok", "passed"}
+
+    checks["consistent_projection"] = consistent_flag
+    print(
+        f"Projection cohérente avec les items: {consistent_flag} "
+        f"(valeur brute: {consistent_raw!r})"
+    )
     # 3. Vérifier chaque dimension
     dimensions = report.get("dimensions_tested", [])
     print(f"\n  Dimensions testées: {dimensions}")
