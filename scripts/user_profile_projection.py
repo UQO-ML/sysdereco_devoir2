@@ -274,12 +274,10 @@ class LatentUserProfileProjector:
         np.save(profiles_path, latent_profiles)
         paths["latent_user_profiles"] = str(profiles_path)
 
-        # Sauvegarder les user_ids (une seule fois, identiques pour toutes les dimensions)
+        # Sauvegarder les user_ids (alignés avec les profils latents sauvegardés)
         user_ids_path = self.results_dir / "user_ids_latent.npy"
-        if not user_ids_path.exists():
-            np.save(user_ids_path, np.array(user_ids))
-            paths["user_ids"] = str(user_ids_path)
-
+        np.save(user_ids_path, np.array(user_ids))
+        paths["user_ids"] = str(user_ids_path)
         # Sauvegarder les métriques
         metrics_path = self.results_dir / f"user_profile_projection_{dimension}d.json"
         with open(metrics_path, "w", encoding="utf-8") as f:
