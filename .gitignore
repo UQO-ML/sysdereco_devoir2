@@ -221,6 +221,7 @@ data/*.pkl
 *.jsonl
 *.npz
 *.npy
+*.pkl
 amazon-reviews*
 *.tar.gz
 .trash/
