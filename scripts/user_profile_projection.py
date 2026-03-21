@@ -138,7 +138,7 @@ class LatentUserProfileProjector:
             user_ids: liste des user_ids correspondant aux lignes
         """
         if self.verbose:
-            print("\n[Build TF-IDF Profiles]")
+            print(f"\n[Build TF-IDF Profiles]")
 
         t0 = time.perf_counter()
 
@@ -213,7 +213,7 @@ class LatentUserProfileProjector:
         t0 = time.perf_counter()
 
         # Charger le modèle SVD
-        model_path = self.data_dir / f"reducer_svd_{dimension}d.pkl"
+        model_path = self.results_dir / f"reducer_svd_{dimension}d.pkl"
         if not model_path.exists():
             raise FileNotFoundError(f"Modèle SVD introuvable: {model_path}")
 
@@ -229,7 +229,7 @@ class LatentUserProfileProjector:
         transform_time = time.perf_counter() - t0
 
         # Vérifier que les items projetés existent
-        items_latent_path = self.data_dir / f"items_reduced_svd_{dimension}d.npy"
+        items_latent_path = self.results_dir / f"items_reduced_svd_{dimension}d.npy"
         if not items_latent_path.exists():
             raise FileNotFoundError(f"Items latents introuvables: {items_latent_path}")
 
@@ -265,32 +265,26 @@ class LatentUserProfileProjector:
         metrics: Dict[str, Any]
     ) -> Dict[str, str]:
         """Sauvegarde les profils latents et les métadonnées."""
-        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
 
         paths = {}
 
         # Sauvegarder les profils latents
-        profiles_path = self.data_dir / f"user_profiles_latent_{dimension}d.npy"
+        profiles_path = self.results_dir / f"user_profiles_latent_{dimension}d.npy"
         np.save(profiles_path, latent_profiles)
         paths["latent_user_profiles"] = str(profiles_path)
 
         # Sauvegarder les user_ids (une seule fois, identiques pour toutes les dimensions)
-        user_ids_path = self.data_dir / "user_ids_latent.npy"
+        user_ids_path = self.results_dir / "user_ids_latent.npy"
         if not user_ids_path.exists():
             np.save(user_ids_path, np.array(user_ids))
-        paths["user_ids"] = str(user_ids_path)
+            paths["user_ids"] = str(user_ids_path)
 
         # Sauvegarder les métriques
         metrics_path = self.results_dir / f"user_profile_projection_{dimension}d.json"
         with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=2, ensure_ascii=False)
         paths["metrics"] = str(metrics_path)
-
-        # Référence explicite vers les items latents de la même dimension.
-        paths["latent_item_vectors"] = str(
-            self.data_dir / f"items_reduced_svd_{dimension}d.npy"
-        )
 
         if self.verbose:
             for name, path in paths.items():
